@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 
 from project.experiments.utils import build_env
 from project.mdp.action import ActionVector
+from project.mdp.mask import mutable_mask
 from project.mdp.reward import terminal_value
 from project.solvers.mcts import MCTS
 from project.solvers.heuristic_value import heuristic_value
@@ -20,9 +21,30 @@ OUTPUT_DETAIL = Path("project/experiments/output/q1_leverage_policy_test_detail.
 OUTPUT_SUMMARY = Path("project/experiments/output/q1_leverage_policy_test_summary.csv")
 
 
-def static_policy_factory(action: ActionVector):
-    def policy(_state):
+CONSERVATIVE_TARGET = ActionVector(3, 2, 2, 1, 1, 0)  # hold roster, moderate salary, deleverage, no equity
+
+
+def conservative_action(state, env, target: ActionVector) -> ActionVector:
+    mask = mutable_mask(state.Theta)
+    values = target.to_list()
+    for i, m in enumerate(mask):
+        if m == 0:
+            values[i] = state.K[i]
+    action = ActionVector.from_list(values)
+    if action in env.valid_actions(state):
         return action
+    valid = env.valid_actions(state)
+    target_list = target.to_list()
+
+    def dist(a: ActionVector) -> int:
+        return sum(abs(x - y) for x, y in zip(a.to_list(), target_list))
+
+    return min(valid, key=dist)
+
+
+def static_policy_factory(env, target: ActionVector):
+    def policy(_state):
+        return conservative_action(_state, env, target)
 
     return policy
 
@@ -129,6 +151,8 @@ def main():
     parser.add_argument("--leverage-soft-penalty", type=float, default=None)
     parser.add_argument("--leverage-hard-penalty", type=float, default=None)
     parser.add_argument("--win-eta3", type=float, default=None)
+    parser.add_argument("--syn-penalty", type=float, default=None)
+    parser.add_argument("--syn-recovery", type=float, default=None)
     args = parser.parse_args()
 
     env = build_env(use_data=True, seed=42)
@@ -147,10 +171,14 @@ def main():
         cfg.leverage_hard_penalty = args.leverage_hard_penalty
     if args.win_eta3 is not None:
         cfg.win_eta3 = args.win_eta3
+    if args.syn_penalty is not None:
+        cfg.syn_penalty = args.syn_penalty
+    if args.syn_recovery is not None:
+        cfg.syn_recovery = args.syn_recovery
 
     seeds = list(range(args.seeds))
     policies = {
-        "static": None,  # fixed action from initial K
+        "static": static_policy_factory(env, CONSERVATIVE_TARGET),
         "mcts": mcts_policy_factory(
             env,
             iterations=args.iterations,
