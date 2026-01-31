@@ -16,6 +16,18 @@ DEFAULT_SKILL_FILE_CANDIDATES = [
 ]
 
 FEATURES = ["WS/40", "TS%", "USG%", "AST%", "TRB%", "DWS_40"]
+DEFAULT_SKILL_WEIGHTS = {
+    "WS/40": 0.35,
+    "TS%": 0.20,
+    "USG%": 0.10,
+    "AST%": 0.15,
+    "TRB%": 0.10,
+    "DWS_40": 0.10,
+}
+WEIGHT_FILE_CANDIDATES = [
+    Path("project/data/skill_weights.json"),
+    Path("project/data/clean/skill_weights.json"),
+]
 
 
 @dataclass
@@ -248,6 +260,21 @@ def load_player_data(path: Path) -> pd.DataFrame:
     return df
 
 
+def load_skill_weights() -> Dict[str, float]:
+    for path in WEIGHT_FILE_CANDIDATES:
+        if path.exists():
+            try:
+                import json
+
+                data = json.loads(path.read_text())
+                weights = data.get("weights", data)
+                if all(k in weights for k in FEATURES):
+                    return {k: float(weights[k]) for k in FEATURES}
+            except Exception:
+                continue
+    return DEFAULT_SKILL_WEIGHTS.copy()
+
+
 def standardize(X: np.ndarray) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     mean = np.nanmean(X, axis=0)
     std = np.nanstd(X, axis=0)
@@ -336,14 +363,8 @@ def build_player_model(
 
     # Composite skill score (weighted z)
     z = pd.DataFrame(Xs, columns=FEATURES)
-    df["skill_score"] = (
-        0.35 * z["WS/40"]
-        + 0.20 * z["TS%"]
-        + 0.10 * z["USG%"]
-        + 0.15 * z["AST%"]
-        + 0.10 * z["TRB%"]
-        + 0.10 * z["DWS_40"]
-    )
+    weights = load_skill_weights()
+    df["skill_score"] = sum(weights[f] * z[f] for f in FEATURES)
 
     cluster_profiles = df.groupby("cluster")[FEATURES].mean()
     cluster_to_position = _assign_positions(cluster_profiles)

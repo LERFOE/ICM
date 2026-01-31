@@ -50,6 +50,7 @@
 
 **注意**
 当前实现使用 `DWS_40`（由 `DWS/MP` 推导）作为防守信号，训练/聚类所需字段为：`Player, Team, WS/40, TS%, USG%, AST%, TRB%, DWS, MP`（脚本会导出包含 `DWS_40` 的技能文件）。
+实际运行基于 `allplayers.csv`（2024 赛季）。
 
 ---
 
@@ -104,7 +105,7 @@ MCTS 已加入 **heuristic value** 与 **候选动作贪心 rollout**：
 ---
 
 ## 8. 为什么仍可能不够“优秀”？问题在哪些部分
-1. **真实球员数据仍缺失**（当前工作区未提供技能 CSV），导致竞技子系统仍部分依赖团队聚合指标，而非真实球员。
+1. **赛程与交易细则缺失**：对手匹配与赛程强度未按真实赛程模拟，交易/选秀规则仍为简化机制。
 2. **竞技转移仍存在随机噪声**（ELO/SOS 仍部分随机生成），导致策略反馈不够稳定。
 3. **财务数据样本太少**（估值与收入只有少量年份，Win%→FV 关系仍被近似），估值回报不够可信。
 4. **动作空间虽已细化，但策略仍离散**，真实管理中存在连续决策与非线性约束。
@@ -112,8 +113,8 @@ MCTS 已加入 **heuristic value** 与 **候选动作贪心 rollout**：
 6. **风险惩罚/终值权重需要经验调参**：过高会压制投资/胜率，过低会导致过度杠杆。
 
 结论：
-- **最大瓶颈在竞技子系统的数据与转移精度**（真实球员缺失 + 随机赛程）
-- 次要瓶颈在财务数据稀缺导致的估值函数误差
+- **最大瓶颈在赛程/交易机制与财务稀疏数据**（真实赛程缺失 + 估值样本少）
+- 次要瓶颈在竞技转移仍含较强随机性
 
 ---
 
@@ -127,8 +128,8 @@ MCTS 已加入 **heuristic value** 与 **候选动作贪心 rollout**：
 ---
 
 ## 10. 后续改进路线（按优先级）
-1. 补齐真实球员技能数据（必须）
-2. 基于真实赛程/SOS构建对手强度分布
+1. 基于真实赛程/SOS构建对手强度分布
+2. 补齐真实选秀/自由球员/交易规则与合同期限
 3. 使用更强求解器（如 MCTS+ValueNet 或 PPO+MLP）
 4. 用贝叶斯或层级模型处理财务稀疏数据
 
@@ -143,5 +144,6 @@ MCTS 已加入 **heuristic value** 与 **候选动作贪心 rollout**：
    - `python project/experiments/q1_leverage_policy_map.py`
    - `python project/experiments/q2_recruitment_strategy.py`
    - `python project/experiments/q3_expansion_site_sensitivity.py`
-   - `python project/experiments/q4_dynamic_ticket_or_equity.py`
+   - `python project/experiments/q4_dynamic_ticket_or_equity.py --mode ticket`
+   - `python project/experiments/q4_dynamic_ticket_or_equity.py --mode equity`
    - `python project/experiments/q5_letter_generator.py`

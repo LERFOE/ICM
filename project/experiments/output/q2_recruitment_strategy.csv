@@ -1,21 +1,117 @@
-a_roster,roster_label,a_salary,salary_label,mean_reward,std_reward,mean_terminal
-2,hold,0,floor,17.773,4.248,359.739
-2,hold,1,over_cap,16.684,4.248,359.739
-2,hold,2,taxpayer,15.58,4.248,359.739
-2,hold,3,apron,15.447,4.248,359.739
-4,buyer_aggressive,3,apron,15.847,3.102,347.001
-4,buyer_aggressive,2,taxpayer,15.498,3.067,345.725
-3,buyer_conservative,3,apron,14.398,2.984,344.596
-4,buyer_aggressive,1,over_cap,15.17,3.033,344.503
-3,buyer_conservative,2,taxpayer,14.376,2.973,344.16
-3,buyer_conservative,1,over_cap,14.36,2.962,343.74
-3,buyer_conservative,0,floor,16.226,2.947,343.141
-4,buyer_aggressive,0,floor,16.605,2.985,342.807
-1,seller_conservative,0,floor,15.511,2.905,341.112
-1,seller_conservative,1,over_cap,15.261,2.9,340.693
-1,seller_conservative,2,taxpayer,14.074,2.897,340.433
-1,seller_conservative,3,apron,12.852,2.895,340.187
-0,seller_aggressive,0,floor,14.787,2.889,338.028
-0,seller_aggressive,1,over_cap,14.409,2.889,337.304
-0,seller_aggressive,2,taxpayer,13.161,2.893,336.905
-0,seller_aggressive,3,apron,11.897,2.9,336.564
+pool,Player,Team,Position,skill_score,delta_q,win_gain,star,cost,owner_value
+Draft（低成本/长期潜力）,Kamilla Cardoso,CHI,SG,-0.227,-0.035,-0.003,0,-0.091,0.031
+Draft（低成本/长期潜力）,Azura Stevens,LAS,SG,-0.596,-0.186,-0.015,0,-0.238,-0.032
+Draft（低成本/长期潜力）,Nneka Ogwumike,SEA,SG,-0.667,-0.207,-0.016,0,-0.267,-0.035
+Draft（低成本/长期潜力）,Murjanatu Musa,PHO,SG,-0.71,-0.313,-0.024,0,-0.284,-0.148
+Draft（低成本/长期潜力）,Teaira McCowan,DAL,SG,-0.715,-0.214,-0.017,0,-0.286,-0.028
+Draft（低成本/长期潜力）,Naz Hillmon,ATL,SG,-0.747,-0.205,-0.016,0,-0.299,-0.007
+Draft（低成本/长期潜力）,Kiki Iriafen,WAS,SG,-0.798,-0.136,-0.011,0,-0.319,0.092
+Draft（低成本/长期潜力）,Kayla Thornton,GSV,SG,-0.802,-0.293,-0.023,0,-0.321,-0.095
+Draft（低成本/长期潜力）,Isabelle Harrison,NYL,SG,-0.833,-0.241,-0.019,0,-0.333,-0.023
+Draft（低成本/长期潜力）,Ezi Magbegor,SEA,SG,-0.854,-0.298,-0.023,0,-0.341,-0.084
+Draft（低成本/长期潜力）,Nyara Sabally,NYL,SG,-0.931,-0.369,-0.028,0,-0.372,-0.145
+Draft（低成本/长期潜力）,Aneesah Morrow,CON,SG,-0.945,-0.235,-0.018,0,-0.378,0.02
+Draft（低成本/长期潜力）,Angel Reese,CHI,SG,-0.976,0.157,0.012,0,-0.39,0.5
+Draft（低成本/长期潜力）,Emily Engstler,WAS,SG,-0.986,-0.09,-0.007,0,-0.394,0.208
+Draft（低成本/长期潜力）,Nia Coffey,ATL,SG,-0.987,-0.155,-0.012,0,-0.395,0.13
+Draft（低成本/长期潜力）,Brittney Griner,ATL,SG,-0.989,-0.326,-0.025,0,-0.396,-0.075
+Draft（低成本/长期潜力）,Kiah Stokes,LVA,SG,-0.989,-0.42,-0.032,0,-0.396,-0.187
+Draft（低成本/长期潜力）,Alanna Smith,MIN,SG,-0.995,-0.225,-0.018,0,-0.398,0.048
+Draft（低成本/长期潜力）,Shakira Austin,WAS,SG,-0.995,-0.065,-0.005,0,-0.398,0.24
+Draft（低成本/长期潜力）,Jonquel Jones,NYL,SG,-0.999,-0.038,-0.003,0,-0.399,0.274
+Draft（低成本/长期潜力）,Monique Billings,GSV,SG,-1.001,-0.382,-0.029,0,-0.4,-0.138
+Draft（低成本/长期潜力）,Cameron Brink,LAS,SG,-1.1,-0.251,-0.02,0,-0.44,0.051
+Draft（低成本/长期潜力）,Brionna Jones,ATL,SG,-1.139,-0.148,-0.012,0,-0.456,0.186
+Draft（低成本/长期潜力）,Kalani Brown,PHO,SG,-1.143,-0.278,-0.022,0,-0.457,0.032
+Draft（低成本/长期潜力）,Dominique Malonga,SEA,SG,-1.321,-0.133,-0.011,0,-0.529,0.264
+Draft（低成本/长期潜力）,Jessica Shepard,MIN,SG,-1.403,0.034,0.003,0,-0.561,0.489
+Draft（低成本/长期潜力）,Laeticia Amihere,GSV,SG,-1.548,-0.12,-0.01,0,-0.619,0.352
+Draft（低成本/长期潜力）,Maria Kliundikova,MIN,SG,-1.619,-0.289,-0.023,0,-0.648,0.171
+Draft（低成本/长期潜力）,Natasha Mack,PHO,SG,-1.665,-0.294,-0.023,0,-0.666,0.18
+Draft（低成本/长期潜力）,Kyara Linskens,GSV,SG,-1.817,-0.433,-0.033,0,-0.727,0.062
+Draft（低成本/长期潜力）,Leonie Fiebich,NYL,PF,0.038,-0.128,-0.01,0,0.015,-0.165
+Draft（低成本/长期潜力）,Kierstan Bell,LVA,PF,0.016,-0.104,-0.008,0,0.006,-0.13
+Draft（低成本/长期潜力）,Elizabeth Williams,CHI,PF,-0.05,0.188,0.015,0,-0.02,0.241
+Draft（低成本/长期潜力）,Myisha Hines-Allen,DAL,PF,-0.09,0.299,0.023,0,-0.036,0.387
+Draft（低成本/长期潜力）,Cecilia Zandalasini,GSV,PF,-0.092,-0.013,-0.001,0,-0.037,0.014
+Draft（低成本/长期潜力）,Bridget Carleton,MIN,PF,-0.134,-0.121,-0.01,0,-0.054,-0.102
+Draft（低成本/长期潜力）,Olivia Nelson-Ododa,CON,PF,-0.14,-0.018,-0.001,0,-0.056,0.023
+Draft（低成本/长期潜力）,Shatori Walker-Kimbrough,ATL,PF,-0.154,-0.173,-0.014,0,-0.062,-0.159
+Draft（低成本/长期潜力）,Rebekah Gardner,NYL,PF,-0.154,-0.139,-0.011,0,-0.062,-0.117
+Draft（低成本/长期潜力）,Kate Martin,GSV,PF,-0.19,-0.026,-0.002,0,-0.076,0.029
+Free Agency（即战力）,Serena Sundell,DAL,C,1.016,-0.701,-0.048,1,1.219,-1.216
+Free Agency（即战力）,Yvonne Anderson,MIN,C,0.979,-0.19,-0.015,1,1.174,-0.568
+Free Agency（即战力）,Marième Badiane,MIN,C,0.938,-0.583,-0.042,1,1.125,-1.0
+Free Agency（即战力）,Sania Feagin,LAS,C,0.765,-0.337,-0.026,0,0.918,-1.139
+Free Agency（即战力）,Paige Bueckers,DAL,PG,0.806,0.278,0.022,1,0.967,0.161
+Free Agency（即战力）,Lindsay Allen,CON,SF,1.372,0.016,0.001,1,1.647,-0.698
+Free Agency（即战力）,Rachel Banham,CHI,SF,1.282,-0.009,-0.001,1,1.538,-0.642
+Free Agency（即战力）,Madison Scott,WAS,SF,1.164,-0.327,-0.025,1,1.397,-0.91
+Free Agency（即战力）,Bria Hartley,CON,SF,1.163,0.129,0.01,1,1.396,-0.362
+Free Agency（即战力）,Tyasha Harris,DAL,SF,1.16,0.067,0.005,1,1.392,-0.434
+Free Agency（即战力）,Mamignan Touré,CON,SF,1.133,-0.232,-0.018,1,1.359,-0.765
+Free Agency（即战力）,Megan McConnell,PHO,SF,1.132,0.308,0.024,1,1.359,-0.118
+Free Agency（即战力）,Arike Ogunbowale,DAL,SF,1.122,0.055,0.004,1,1.347,-0.411
+Free Agency（即战力）,Kia Nurse,CHI,SF,1.121,-0.16,-0.013,1,1.345,-0.668
+Free Agency（即战力）,Michaela Onyenwere,CHI,SF,1.114,-0.125,-0.01,1,1.337,-0.619
+Free Agency（即战力）,Kelsey Plum,LAS,SF,1.112,0.236,0.019,1,1.334,-0.184
+Free Agency（即战力）,Hailey Van Lith,CHI,SF,1.105,0.053,0.004,1,1.326,-0.397
+Free Agency（即战力）,Rickea Jackson,LAS,SF,0.996,-0.144,-0.011,1,1.195,-0.528
+Free Agency（即战力）,Marina Mabrey,CON,SF,0.987,0.214,0.017,1,1.185,-0.091
+Free Agency（即战力）,Moriah Jefferson,CHI,SF,0.979,0.535,0.039,1,1.175,0.302
+Free Agency（即战力）,Christyn Williams,DAL,SF,0.969,-0.154,-0.012,1,1.162,-0.514
+Free Agency（即战力）,Dana Evans,LVA,SF,0.863,0.02,0.002,1,1.035,-0.204
+Free Agency（即战力）,Jacy Sheldon,WAS,SF,0.854,-0.246,-0.019,1,1.025,-0.516
+Free Agency（即战力）,Jaelyn Brown,CON,SF,0.853,-0.36,-0.028,1,1.024,-0.651
+Free Agency（即战力）,Sug Sutton,WAS,SF,0.79,0.113,0.009,1,0.949,-0.023
+Free Agency（即战力）,Rae Burrell,LAS,SF,0.782,-0.097,-0.008,0,0.938,-0.867
+Free Agency（即战力）,JJ Quinerly,DAL,SF,0.766,0.165,0.013,0,0.919,-0.537
+Free Agency（即战力）,Courtney Vandersloot,CHI,SF,0.762,0.403,0.031,0,0.914,-0.248
+Free Agency（即战力）,Sarah Ashlee Barker,LAS,SF,0.741,-0.14,-0.011,0,0.89,-0.879
+Free Agency（即战力）,Mercedes Russell,LAS,SF,0.661,-0.11,-0.009,0,0.793,-0.766
+Free Agency（即战力）,Ariel Atkins,CHI,SF,0.658,0.168,0.013,0,0.789,-0.43
+Free Agency（即战力）,Jade Melbourne,WAS,SF,0.655,0.023,0.002,0,0.787,-0.601
+Free Agency（即战力）,Leïla Lacan,CON,SF,0.644,0.173,0.014,0,0.773,-0.411
+Free Agency（即战力）,Saniya Rivers,CON,SF,0.619,0.03,0.002,0,0.743,-0.559
+Free Agency（即战力）,Julie Allemand,LAS,SF,0.617,0.182,0.014,0,0.74,-0.374
+Free Agency（即战力）,Rebecca Allen,CHI,SF,0.614,-0.089,-0.007,0,0.737,-0.697
+Trade（中高强度补强）,Maddy Siegrist,DAL,PF,0.602,-0.159,-0.013,0,0.542,-0.625
+Trade（中高强度补强）,Kitija Laksa,PHO,PF,0.534,-0.29,-0.023,0,0.481,-0.732
+Trade（中高强度补强）,Aaliyah Nye,LVA,PF,0.515,-0.251,-0.02,0,0.464,-0.672
+Trade（中高强度补强）,Kiana Williams,PHO,PF,0.41,0.0,0.0,0,0.369,-0.295
+Trade（中高强度补强）,Monique Akoa Makani,PHO,PF,0.311,0.084,0.007,0,0.28,-0.123
+Trade（中高强度补强）,Lexi Held,PHO,PF,0.309,-0.121,-0.01,0,0.278,-0.368
+Trade（中高强度补强）,Marine Johannes,NYL,PF,0.273,-0.042,-0.003,0,0.246,-0.247
+Trade（中高强度补强）,Jewell Loyd,LVA,PF,0.269,-0.099,-0.008,0,0.242,-0.312
+Trade（中高强度补强）,Yvonne Anderson,MIN,C,0.979,-0.19,-0.015,1,0.881,-0.333
+Trade（中高强度补强）,Marième Badiane,MIN,C,0.938,-0.583,-0.042,1,0.844,-0.775
+Trade（中高强度补强）,Sania Feagin,LAS,C,0.765,-0.337,-0.026,0,0.689,-0.955
+Trade（中高强度补强）,Robyn Parks,CON,C,0.592,-0.479,-0.036,0,0.532,-1.001
+Trade（中高强度补强）,Joyner Holmes,LVA,C,0.439,-0.43,-0.032,0,0.395,-0.831
+Trade（中高强度补强）,Crystal Bradford,LVA,C,0.373,-0.327,-0.025,0,0.336,-0.661
+Trade（中高强度补强）,Haley Peters,CON,C,0.338,-0.251,-0.02,0,0.304,-0.544
+Trade（中高强度补强）,Camryn Taylor,MIN,C,0.263,-0.245,-0.019,0,0.237,-0.483
+Trade（中高强度补强）,Paige Bueckers,DAL,PG,0.806,0.278,0.022,1,0.725,0.354
+Trade（中高强度补强）,Cheyenne Parker-Tyus,LVA,PG,0.602,-0.256,-0.02,0,0.542,-0.741
+Trade（中高强度补强）,Skylar Diggins,SEA,PG,0.381,0.268,0.021,0,0.343,0.048
+Trade（中高强度补强）,Moriah Jefferson,CHI,SF,0.979,0.535,0.039,1,0.881,0.537
+Trade（中高强度补强）,Christyn Williams,DAL,SF,0.969,-0.154,-0.012,1,0.872,-0.282
+Trade（中高强度补强）,Dana Evans,LVA,SF,0.863,0.02,0.002,1,0.776,0.003
+Trade（中高强度补强）,Jacy Sheldon,WAS,SF,0.854,-0.246,-0.019,1,0.769,-0.311
+Trade（中高强度补强）,Jaelyn Brown,CON,SF,0.853,-0.36,-0.028,1,0.768,-0.446
+Trade（中高强度补强）,Sug Sutton,WAS,SF,0.79,0.113,0.009,1,0.711,0.167
+Trade（中高强度补强）,Rae Burrell,LAS,SF,0.782,-0.097,-0.008,0,0.704,-0.68
+Trade（中高强度补强）,JJ Quinerly,DAL,SF,0.766,0.165,0.013,0,0.689,-0.353
+Trade（中高强度补强）,Courtney Vandersloot,CHI,SF,0.762,0.403,0.031,0,0.686,-0.065
+Trade（中高强度补强）,Sarah Ashlee Barker,LAS,SF,0.741,-0.14,-0.011,0,0.667,-0.702
+Trade（中高强度补强）,Mercedes Russell,LAS,SF,0.661,-0.11,-0.009,0,0.594,-0.607
+Trade（中高强度补强）,Ariel Atkins,CHI,SF,0.658,0.168,0.013,0,0.592,-0.272
+Trade（中高强度补强）,Jade Melbourne,WAS,SF,0.655,0.023,0.002,0,0.59,-0.444
+Trade（中高强度补强）,Leïla Lacan,CON,SF,0.644,0.173,0.014,0,0.58,-0.256
+Trade（中高强度补强）,Saniya Rivers,CON,SF,0.619,0.03,0.002,0,0.558,-0.41
+Trade（中高强度补强）,Julie Allemand,LAS,SF,0.617,0.182,0.014,0,0.555,-0.226
+Trade（中高强度补强）,Rebecca Allen,CHI,SF,0.614,-0.089,-0.007,0,0.553,-0.55
+Trade（中高强度补强）,Aziaha James,DAL,SF,0.614,0.034,0.003,0,0.552,-0.401
+Trade（中高强度补强）,Kaitlyn Chen,GSV,SF,0.531,-0.054,-0.004,0,0.478,-0.447
+Trade（中高强度补强）,Lucy Olsen,WAS,SF,0.499,-0.016,-0.001,0,0.449,-0.378
+Trade（中高强度补强）,Zia Cooke,SEA,SF,0.443,-0.243,-0.019,0,0.399,-0.611

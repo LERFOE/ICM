@@ -86,6 +86,11 @@ class MDPConfig:
     compete_local: int = 0
     base_star_fa: int = 3
     base_bidding: float = 5.0
+    # Expansion competition channels (kept simple but explicit for Q3 write-up)
+    # - compete_revenue_beta: local competition reduces gate demand / share of attention
+    # - bidding_payroll_beta: higher bidding intensity raises payroll cost for a given salary target
+    compete_revenue_beta: float = 0.04
+    bidding_payroll_beta: float = 0.03
 
     # Competitive dynamics
     elo_k: float = 20.0

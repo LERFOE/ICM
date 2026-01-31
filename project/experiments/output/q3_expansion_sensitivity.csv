@@ -1,5 +1,5 @@
-site,baseline_terminal,learned_terminal,delta_terminal,baseline_cf,learned_cf,delta_cf
-Nashville,902.619,85.944,-816.675,11.978,-4.707,-16.684
-Denver,902.619,79.566,-823.053,12.16,-4.81,-16.97
-Toronto,902.619,51.422,-851.197,14.252,-3.27,-17.522
-SanDiego,902.619,42.863,-859.755,12.559,-2.201,-14.76
+site,baseline_terminal,learned_terminal,delta_terminal,baseline_cf,learned_cf,delta_cf,winners,losers
+Nashville,493.685,629.897,136.212,16.544,18.378,1.834,"NYL,PHO,LAS","WAS,ATL,IND"
+Toronto,537.895,653.108,115.213,17.78,18.14,0.36,"PHO,LAS,SEA","CON,WAS,DAL"
+Denver,504.503,618.403,113.9,16.72,18.356,1.636,"NYL,LAS,SEA","MIN,WAS,DAL"
+SanDiego,515.476,596.649,81.172,17.264,17.519,0.255,"NYL,PHO,IND","LVA,LAS,WAS"

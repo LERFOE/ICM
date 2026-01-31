@@ -34,7 +34,10 @@ def fin_transition_and_reward(
     performance_factor = 1.0 + config.rev_win_beta * (win_pct - 0.5)
     star_factor = 1.0 + config.rev_star_beta * np.tanh(float(np.mean(R_next.Q)))
     macro_factor = config.macro_revenue_factor[E_next.macro]
-    market_factor = E_next.mu_size
+    # Local competition dilutes demand (e.g., new team in region competes for attention).
+    # Keep the channel explicit so Q3 can trace "Δ_compete -> revenue/CF" quantitatively.
+    compete_factor = float(np.clip(1.0 - config.compete_revenue_beta * float(E_next.compete_local), 0.70, 1.00))
+    market_factor = E_next.mu_size * compete_factor
 
     # Ticket price elasticity: Revenue scales as P^(1 - e)
     ticket_revenue_mult = ticket_mult ** (1.0 - config.ticket_elasticity)
@@ -54,7 +57,8 @@ def fin_transition_and_reward(
     sponsor_revenue = config.base_sponsor_revenue * (1.0 + config.sponsor_beta * marketing_rate)
 
     media_revenue = config.base_media_revenue * macro_factor
-    if E_next.t_media_deal == 0:
+    # Apply a media-lift either at the renewal event or in expansion years (Q3).
+    if E_next.t_media_deal == 0 or E_next.i_expansion == 1:
         media_revenue *= 1.0 + config.expansion_media_bonus
 
     total_revenue = gate_revenue + sponsor_revenue + media_revenue
@@ -65,6 +69,8 @@ def fin_transition_and_reward(
         payroll *= 1.1
     elif action.a_roster <= 2:
         payroll *= 0.95
+    # Bidding intensity raises the effective cost of acquiring/retaining talent.
+    payroll *= 1.0 + config.bidding_payroll_beta * max(0.0, float(E_next.bidding_intensity - config.base_bidding))
 
     payroll_cash = payroll * (1.0 - equity_rate)
 
@@ -113,6 +119,10 @@ def fin_transition_and_reward(
     )
     if E_next.t_media_deal == 0:
         V_t += config.media_spike_growth
+    if E_next.i_expansion == 1:
+        # A smaller lift than a full media-cycle spike: expansion tends to increase attention,
+        # but the long-run effect is uncertain and should be treated conservatively.
+        V_t += 0.5 * config.expansion_media_bonus
     V_t = float(np.clip(V_t, -config.growth_clip, config.growth_clip))
 
     FV_next = F_next.FV * (1.0 + V_t)

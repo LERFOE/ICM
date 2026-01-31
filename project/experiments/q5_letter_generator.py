@@ -10,7 +10,8 @@ OUTPUT_MD = Path("project/experiments/output/q5_letter.md")
 Q1_PATH = Path("project/experiments/output/q1_leverage_policy_map.csv")
 Q2_PATH = Path("project/experiments/output/q2_recruitment_strategy.csv")
 Q3_PATH = Path("project/experiments/output/q3_expansion_sensitivity.csv")
-Q4_PATH = Path("project/experiments/output/q4_dynamic_policy_summary.md")
+Q4_TICKET = Path("project/experiments/output/q4_dynamic_policy_summary_ticket.md")
+Q4_EQUITY = Path("project/experiments/output/q4_dynamic_policy_summary_equity.md")
 
 
 def _load_csv(path: Path):
@@ -46,14 +47,17 @@ def summarize_q1(rows):
 def summarize_q2(rows):
     if not rows:
         return "招募策略：暂无结果（未生成 Q2 输出）。"
-    # rows are sorted in file; take top 3
-    top = rows[:3]
+    # Group by pool and pick top 1-2 candidates per pool
+    pools = {}
+    for r in rows:
+        pools.setdefault(r["pool"], []).append(r)
     parts = []
-    for r in top:
-        parts.append(
-            f"{r['roster_label']} + {r['salary_label']}（终值≈{float(r['mean_terminal']):.2f}）"
-        )
-    return "优先组合：" + "；".join(parts)
+    for pool, items in pools.items():
+        items = sorted(items, key=lambda x: float(x.get("owner_value", 0.0)), reverse=True)
+        top = items[:2]
+        picks = ", ".join([f"{t['Player']}({t['Position']})" for t in top])
+        parts.append(f"{pool}: {picks}")
+    return "优先招募：" + "；".join(parts)
 
 
 def summarize_q3(rows):
@@ -68,10 +72,14 @@ def summarize_q3(rows):
 
 
 def summarize_q4():
-    if not Q4_PATH.exists():
+    parts = []
+    if Q4_TICKET.exists():
+        parts.append("票价策略已生成（ticket）")
+    if Q4_EQUITY.exists():
+        parts.append("股权策略已生成（equity）")
+    if not parts:
         return "票价/股权策略：暂无结果（未生成 Q4 输出）。"
-    # Use file as-is
-    return "票价/股权策略已生成（见 Q4 输出）。"
+    return "；".join(parts) + "。"
 
 
 def main():

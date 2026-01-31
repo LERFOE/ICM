@@ -68,28 +68,29 @@ class MDPEnv:
         # 0) roll K
         K_next = roll_K(state.Theta, state.K, action)
 
-        # 1) environment transition
-        E_next = env_transition(state.E, state.year, rng, self.config)
-
-        # 2) competitive transition
+        # 1) competitive transition uses the *current* environment (what the GM observes at decision time).
         R_next, comp_info = comp_transition(
             state.R,
             action,
             state.Theta,
-            E_next,
+            state.E,
             rng,
             self.config,
             player_model=self.player_model,
             team_code=self.config.team_code,
         )
 
-        # 3) financial transition and reward
-        F_next, reward = fin_transition_and_reward(state.F, R_next, E_next, action, state.Theta, rng, self.config)
+        # 2) financial transition and reward uses the current environment as well.
+        F_next, reward = fin_transition_and_reward(state.F, R_next, state.E, action, state.Theta, rng, self.config)
         F_next.K = list(K_next)
 
-        # 4) phase advance
+        # 3) phase advance
         Theta_next, wraps = next_phase(state.Theta)
         year_next = state.year + 1 if wraps else state.year
+
+        # 4) environment transition into the next phase/year.
+        # This makes expansion shocks visible *before* offseason decisions (state includes I_expansion etc.).
+        E_next = env_transition(state.E, year_next, Theta_next, rng, self.config)
 
         next_state = State(
             R=R_next,

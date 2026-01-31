@@ -2392,3 +2392,419 @@ $$
 - $FV_T - D_T$ 是最终时刻的**总权益价值（Total Equity）**。
 - $s_T$ 是经过 $T$ 年连续稀释后的**所有者持股比例**。
 - 此公式清晰、简洁且完全避免了重复扣减的问题。Agent 必须权衡：是用股权（降低 $s_T$）来换取薪资空间（提升 $\text{Win\%} \to FV_T$），还是保留股权（维持 high $s_T$）但承担现金压力。
+
+---
+
+# Q2–Q4 建模与实现（详细版，供论文末尾直接使用）
+
+> 说明：本节与正文状态/动作/奖励定义保持一致，所有实验均基于 **Indiana Fever (IND)**。球员数据来自 **2024 赛季 `allplayers.csv`**；财务部分使用“联赛级回归 + Indiana 校准”的参数（与数据校准章节一致）。
+
+---
+
+## Q2 招募策略（Draft / Free Agency / Trade）
+
+### 1) 球员特征与技能表征
+
+**原始特征**（`allplayers.csv`）：
+$$
+\{WS/40, TS\%, USG\%, AST\%, TRB\%, DWS, MP\}
+$$
+
+**防守信号替代**（避免 DBPM 缺失）：
+$$
+DWS\_40_i = \frac{DWS_i}{MP_i}\times 40
+$$
+
+**标准化**（联盟内 z-score）：
+$$
+z_{i,k} = \frac{x_{i,k}-\mu_k}{\sigma_k}
+$$
+
+**球员综合得分（skill\_score）这个分物种球员类别，先把他们kmeans之后再**（回归拟合权重）：
+$$
+skill_i = \sum_{k\in \mathcal{K}} w_k\, z_{i,k}
+$$
+
+
+### 2) 怎样衡量球员的能力：
+
+为了更准确地捕捉现代篮球中球员的功能差异，我们对 2023 赛季 WNBA 全体球员的六维技能向量进行了 KMeans ($K=5$) 聚类分析。通过分析各聚类的原始统计特征（Raw Statistics），我们识别出了以下五种典型的球员风格，并将其映射到传统的“位置”标签以适应阵容构建需求：
+
+**表 1：WNBA 球员技能聚类统计表 (Cluster Profiles - Raw Stats)**
+
+| Cluster (Tag) | WS/40 | TS% | USG% | AST% | TRB% | DWS/40 | **风格定义 (Player Archetype)** |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Cluster 3 (PG)** | **0.175** | **57.1%** | **25.1%** | **26.8%** | 9.5% | 0.062 | **核心持球大核 (Elite Playmaker)**<br>高使用率与高助攻并存，是球队进攻的绝对发起点与核心得分手。 |
+| **Cluster 0 (SG)** | 0.133 | 54.8% | 19.7% | 11.7% | **16.7%** | **0.078** | **攻防全能球星 (Two-Way Star)**<br>拥有极高的防守贡献与篮板保护能力，同时兼具优秀的得分效率，通常是顶级的全能前锋或摇摆人。 |
+| **Cluster 1 (PF)** | 0.081 | 54.3% | 16.7% | 11.6% | 8.5% | 0.047 | **优质主力/拼图 (Solid Starter)**<br>各项数据均衡且高效，能够提供稳定的攻防贡献，是强队不可或缺的主力轮换。 |
+| **Cluster 4 (SF)** | 0.020 | 49.9% | 17.9% | 18.2% | 5.9% | 0.009 | **外线角色球员 (Perimeter Role)**<br>效率与防守贡献相对平庸，通常负责外线过渡或替补轮转。 |
+| **Cluster 2 (C)** | -0.132 | 23.3% | 15.2% | 6.1% | 10.7% | 0.019 | **边缘/低效球员 (Deep Bench)**<br>样本中表现为低效率和负贡献值，通常对应上场时间极少的边缘球员或未适应环境的新秀。 |
+
+该逻辑实现于 `project/data/player_kmeans.py`。虽然使用了这一映射，但我们的模型并未局限于僵化的位置，而是允许通过 `skill_score` 进行跨位置的人才比较，以实现“最佳天赋积累”策略。
+
+### 3) Indiana 阵容构建与缺口识别
+
+- 从 `Team=IND` 选出 12 人 roster；
+- 首发：每个 cluster 取 skill\_score 最高球员；
+- 替补：全队 skill\_score 高者补齐；
+- **位置缺口**按“当前位置平均 skill\_score 最低的优先补强”排序。
+
+### 4) 招募池定义（Draft / FA / Trade）
+
+基于 skill\_score 分位数构建三类候选池（排除 IND 球员）：
+$$
+\text{Draft}: [0, 45\%],\quad
+\text{FA}: [75\%, 100\%],\quad
+\text{Trade}: [60\%, 90\%]
+$$
+分别对应“低成本潜力 / 即战力 / 中高强度补强”。
+
+### 5) 所有者视角价值模型（核心）
+
+**候选替换规则**：若候选位置存在，则替换该位置最低 skill\_score；否则替换全队最低。
+
+竞技增益：
+$$
+\Delta Q = \overline{Q}_{new}-\overline{Q}_{old}
+$$
+
+胜率增益（启发式）：
+$$
+\Delta Win \approx 0.08\tanh(\Delta Q)
+$$
+
+星级判定：
+$$
+Star_i = \mathbb{I}(skill_i \ge q_{0.85})
+$$
+
+成本代理：
+$$
+Cost_i = c_{pool}\cdot skill_i,\quad
+c_{Draft}=0.4,\;c_{FA}=1.2,\;c_{Trade}=0.9
+$$
+
+**Owner 价值函数**：
+$$
+V_i = 1.2\Delta Q + 0.6\cdot Star_i - 0.8\cdot Cost_i
+$$
+
+
+### 6) 权重回归拟合与敏感性分析
+
+**(a) 团队特征构造（分钟加权）**
+
+对每支球队 $T$ 的聚合特征：
+$$
+X_{T,k} = \sum_{i\in T} w_i\,z_{i,k},\quad
+w_i=\frac{MP_i}{\sum_{j\in T} MP_j}
+$$
+
+**(b) 目标变量（Win% / NetRtg / ELO）**
+
+- Win% 与 NetRtg 来自 `wnba_advanced_stats.csv` 最近赛季（2023）。  
+- 联盟 ELO 不完整，因此使用 **IND 历史 ELO 与 NetRtg/Win% 回归**得到 ELO 代理：
+$$
+ELO\_{proxy} = 1526.89 + 5.541\cdot NetRtg + 2.237\cdot Win\%
+$$
+
+**(c) 多目标回归（Ridge / Lasso）**
+
+令 $Y=[Win\%, NetRtg, ELO\_{proxy}]$，拟合：
+$$
+\min_{W}\ \|Y - XW\|_2^2 + \alpha\|W\|_2^2 \quad (Ridge)
+$$
+或
+$$
+\min_{W}\ \|Y - XW\|_2^2 + \alpha\|W\|_1 \quad (Lasso)
+$$
+
+本次数据下 Ridge 的误差略低于 Lasso，因此采用 Ridge 结果并在目标维度上取平均得到权重：
+$$
+w = [-0.043,\ 0.018,\ 0.020,\ 0.085,\ -0.349,\ -0.485]
+$$
+
+注意，这些数值经过了双重标准化（Z-Score Normalization）处理，它们代表的是“相对偏差值”（Standard Deviations from Mean），而不是“原始绝对值”。
+原始数据如下：
+对应 $[WS/40, TS\%, USG\%, AST\%, TRB\%, DWS\_{40}]$（L1 归一化）。
+
+**(d) 敏感性分析（权重扰动）**
+
+以 $w$ 为中心加入噪声并归一化（200 次）：
+- 全体球员 rank 的 Spearman 相关：均值 **0.976**，标准差 **0.020**
+- 招募 Top5 重叠率：
+  - Draft：**0.878 ± 0.134**
+  - Free Agency：**0.700 ± 0.148**
+  - Trade：**0.474 ± 0.181**
+
+结果表明：整体排名较稳定，但 Trade 区间对权重更敏感。
+
+### 7) 求解流程与输出
+
+**流程**：
+1) 构建 IND 阵容与位置缺口；
+2) 生成 Draft/FA/Trade 候选池；
+3) 对每名候选执行“替换—评估—打分”；
+4) 以 $V_i$ 排序输出招募清单。
+
+**实现脚本**：`project/experiments/q2_recruitment_strategy.py`  
+**输出文件**：
+- `project/experiments/output/q2_recruitment_strategy.csv`
+- `project/experiments/output/q2_recruitment_summary.md`
+
+### 8) 解决问题的方式（对应题意）
+
+Q2 要求“基于联赛标准操作制定招募策略，并从所有者利润角度评估”。该实现将 Draft/FA/Trade 明确分流，并用 $V_i$ 将竞技收益、明星效应与成本风险统一度量，直接输出可执行的招募方案与利弊分析。
+
+---
+
+## Q3 扩军情景与选址敏感性
+
+### 1) 扩军冲击如何“写入状态”（环境层）与为什么要这样写
+
+本题的关键是：\textbf{扩军并不是一个“连续微扰”，而是一个在赛季边界发生的离散外生冲击}。因此我们将扩军冲击作为环境状态 $\mathcal{E}_t$ 的一次性跳变，并要求该跳变\textbf{发生在进入扩军赛季的 Offseason 之前}，使总经理能在休赛期决策时“提前看到”冲击。
+
+代码实现位置：`project/mdp/transitions_env.py` 的 `env_transition(...)`，并在 `project/mdp/env.py` 中以“先推进阶段/年份，再更新环境”的方式调用，使 $\Theta_{t+1}=\text{Offseason}$ 时的环境冲击可被下一步决策直接观测。
+
+#### (a) 扩军选址三元组（情景参数）
+
+我们用一个三元组对“新球队选址”进行参数化（代码：`project/experiments/q3_expansion_site_sensitivity.py`）：
+$$
+(\Delta_{market},\ \Delta_{compete},\ media\_bonus)
+$$
+解释如下：
+\begin{itemize}
+    \item $\Delta_{market}$：扩军对 Indiana 市场规模因子 $\mu_{\text{size}}$ 的净影响（可能为负：市场被分流；也可能为正：联盟关注度提升带来外溢）。
+    \item $\Delta_{compete}$：扩军对 Indiana 本地竞争强度 $\text{Compete}_{local}$ 的影响（越大表示“附近新增竞争者/同类娱乐分流”越强）。
+    \item $media\_bonus$：扩军年媒体合作/转播关注带来的“当期媒体收入+品牌增长”提升幅度。
+\end{itemize}
+
+#### (b) 一次性环境跳变（扩军年进入 Offseason 时触发）
+
+当进入扩军年份 $y\in\mathcal{Y}_{expansion}$ 且阶段切换到 $\Theta_{t+1}=\text{Offseason}$ 时，环境状态在代码中执行一次性更新：
+$$
+\mu_{t+1}=\text{clip}(\mu_t+\Delta_{market}),\qquad
+compete_{t+1}=\text{clip}(compete_t+\Delta_{compete})
+$$
+其中：
+\begin{itemize}
+    \item $\mu_t$ 对应代码中的 `EnvState.mu_size`，并在财务转移中作为门票收入的市场放大因子；
+    \item $compete_t$ 对应 `EnvState.compete_local`，在财务转移中削弱门票需求（见下文）。
+\end{itemize}
+
+同时我们将扩军对自由市场的两条典型机制“定量化”写入：
+$$
+N_{\text{Star,FA},t+1}=\max\{0,\ N_{\text{Star,FA},t}+\Delta_{\text{Star,FA}}\}+\varepsilon_{FA},
+$$
+$$
+\text{Bidding}_{t+1}=\max\{0,\ \text{Bidding}_t+\Delta_{\text{bidding}}\}+\varepsilon_{bid},
+$$
+解释如下：
+\begin{itemize}
+    \item $N_{\text{Star,FA}}$（代码 `EnvState.n_star_fa`）表示“当期自由市场可获得的顶级球员数量（稀缺度）”，扩军使其减少（默认 $\Delta_{\text{Star,FA}}=-2$）。
+    \item $\text{Bidding}$（代码 `EnvState.bidding_intensity`）表示“竞价强度/溢价水平”，扩军使其上升（默认 $\Delta_{\text{bidding}}=+2$）。
+    \item 噪声项：$\varepsilon_{FA}\sim\text{round}(\mathcal{N}(0,1))$，$\varepsilon_{bid}\sim\mathcal{N}(0,0.5)$，用于刻画扩军年自由市场供给与竞价的不确定性。
+\end{itemize}
+
+#### (c) 扩军冲击的“具体数值”（Indiana 的基准与各选址对比）
+
+由数据校准得到 Indiana 的基准市场因子约为 $\mu_0\approx 0.615$（对应 `calibrate_config_from_data()`），且初始 $\text{Compete}_{local}=0$，$N_{\text{Star,FA}}=3$，$\text{Bidding}=5$。各选址情景的“确定性部分”变化为：
+\begin{itemize}
+    \item Toronto：$\Delta_{market}=+0.02,\ \Delta_{compete}=0$，因此 $\mu\approx 0.635$；
+    \item Denver：$\Delta_{market}=-0.02,\ \Delta_{compete}=1$，因此 $\mu\approx 0.595,\ compete=1$；
+    \item Nashville：$\Delta_{market}=-0.03,\ \Delta_{compete}=1$，因此 $\mu\approx 0.585,\ compete=1$；
+    \item SanDiego：$\Delta_{market}=-0.01,\ \Delta_{compete}=0$，因此 $\mu\approx 0.605$。
+\end{itemize}
+并且扩军年会使 $N_{\text{Star,FA}}:3\to 1$（再叠加随机波动）、$\text{Bidding}:5\to 7$（再叠加随机波动）。
+
+### 2) “自由市场供给减少/竞价强度上升”到底影响了哪些变量（竞技层传播链）
+
+扩军并不会直接修改 Indiana 的胜率，而是通过“阵容更新的边际效率”传导至竞技状态 $\mathcal{R}_t$。该机制在 `project/mdp/transitions_comp.py` 的 `roster_update(...)` 中以\textbf{可计算的乘法因子}落地：
+$$
+\Delta \mathbf{Q}\ \propto\ \Delta_{\text{roster}}(a_{\text{roster}})
+\cdot f_{\text{salary}}(a_{\text{salary}})
+\cdot f_{\text{FA}}(N_{\text{Star,FA}})
+\cdot f_{\text{bid}}(\text{Bidding}).
+$$
+其中两条与扩军直接相关的因子是：
+$$
+f_{\text{FA}}(N)=1+0.05\cdot \max(0,\ N-2),
+$$
+$$
+f_{\text{bid}}(B)=1-0.02\cdot \max(0,\ B-5).
+$$
+解释：
+\begin{itemize}
+    \item 当扩军导致 $N_{\text{Star,FA}}$ 从 3 降到 1 时，$f_{\text{FA}}$ 从 $1.05$ 变为 $1.00$，表示同样的 roster/salary 操作“更难买到”同等质量的补强；
+    \item 当扩军导致竞价强度从 5 升到 7 时，$f_{\text{bid}}$ 从 $1.00$ 变为 $0.96$，表示竞价溢价使补强效率下降；
+    \item 二者合并会使“同一动作带来的 $\Delta \mathbf{Q}$”相对基准下降约 $0.96/1.05\approx 0.914$（约 8.6\% 的边际效率损失）。
+\end{itemize}
+
+进一步，$\mathbf{Q}_t$ 会进入赛季内胜率更新（`project/mdp/transitions_comp.py: game_sim_update`）：
+$$
+P(\text{win})=\sigma\big(\eta_0+\eta_1\Delta ELO-\eta_{SOS}(SOS-1)+\eta_2 Syn+\eta_3\tanh(\overline{Q})\big),
+$$
+因此扩军对 $\Delta\mathbf{Q}$ 的压缩会传导为更低的赢球概率与更慢的 ELO 进化。
+
+### 3) “市场/竞争/媒体 bonus”到底影响了哪些变量（财务层传播链）
+
+#### (a) 门票收入：$\mu_{\text{size}}$ 与 $compete_{local}$ 的作用位置
+
+财务转移在 `project/mdp/transitions_fin.py` 中。门票收入（gate revenue）的核心结构为：
+$$
+Rev_{\text{gate}}=\text{BaseGate}\cdot f_{\text{perf}}(Win\%)\cdot f_{\text{star}}(\overline{Q})
+\cdot f_{\text{macro}}(\text{Macro})\cdot \underbrace{\mu_{\text{size}}\cdot f_{\text{compete}}(compete_{local})}_{\text{扩军选址影响入口}}
+\cdot f_{\text{ticket}}(a_{\text{ticket}})\cdot f_{\text{mkt}}(a_{\text{marketing}}).
+$$
+其中本地竞争因子在代码中定义为：
+$$
+f_{\text{compete}}=\text{clip}\big(1-\beta_{\text{compete}}\cdot compete_{local}\big),\qquad \beta_{\text{compete}}=0.04,
+$$
+解释：新增本地竞争者会削弱 Indiana 的门票需求/注意力份额；该削弱通过 $Rev_{\text{gate}}$ 进入经营现金流 $CF_t$。
+
+#### (b) 薪资成本：竞价强度如何抬升成本
+
+扩军会提高竞价强度 $\text{Bidding}$，从而抬升给定薪资档位下的真实支付成本（代码同样在 `transitions_fin.py`）：
+$$
+\text{Payroll}=\text{Cap}\cdot M_{\text{salary}}(a_{\text{salary}})\cdot f_{\text{roster}}(a_{\text{roster}})
+\cdot\Big(1+\beta_{\text{bid}}\cdot\max(0,\text{Bidding}-B_0)\Big),
+$$
+其中 $\beta_{\text{bid}}=0.03$，$B_0=5$ 为基准竞价水平。解释：当 $\text{Bidding}$ 从 5 升到 7 时，Payroll 额外增加约 $1+0.03\cdot 2=1.06$（约 +6\%），使“高薪抢星”在扩军年更难转化为正的经营利润。
+
+#### (c) 媒体 bonus：收入与估值增长的双通道注入
+
+扩军年媒体 bonus 在财务转移中通过两条渠道进入：
+\begin{itemize}
+    \item 媒体收入提升：若 $I_{\text{Expansion}}=1$（或媒体周期事件发生），则
+    $$
+    Rev_{\text{media}}=\text{BaseMedia}\cdot f_{\text{macro}}\cdot (1+media\_bonus).
+    $$
+    \item 估值增长提升：估值增长率 $V_t$ 在扩军年额外增加一项
+    $$
+    V_t\leftarrow V_t+0.5\cdot media\_bonus,
+    $$
+    表示扩军带来的品牌关注度提升（但幅度保守，低于一次完整媒体周期的 spike）。
+\end{itemize}
+
+### 4) 扩军年 Indiana 应如何从初始策略调整（必须“拿数据说话”的定量对比）
+
+为避免“只说结论不说依据”，我们在同样初始化设置下比较四种策略，并固定扩军年份为 2026（只触发一次扩军），在 3 个赛季（12 个 phase step）后比较关键指标：
+\begin{itemize}
+    \item Baseline：保持默认固定策略（mask-aware + nearest-valid）。
+    \item Aggressive：高薪抢星 + 激进补强 + 加杠杆（动作目标为 $(6,5,6,3,4,0)$；若触发风险约束则自动投影到最近合法动作）。
+    \item Defensive：现金流稳定 + 阵容稳定 + 适度去杠杆（动作目标为 $(3,1,2,3,1,0)$）。
+    \item PPO：在相同 Action Mask 与风险约束下训练得到的自适应策略。
+\end{itemize}
+
+代码与输出位置：
+\begin{itemize}
+    \item 实验脚本：`project/experiments/q3_expansion_policy_comparison.py`
+    \item 输出：`project/experiments/output/q3_policy_comparison_summary.csv`（赛季末均值/方差）
+    \item 关键动作统计：`project/experiments/output/q3_policy_comparison_detail.csv`（含扩军年 Offseason 的动作均值）
+\end{itemize}
+
+以“第 3 赛季末（Season 3）”为例，各选址下 PPO 相对 Baseline 的提升（均为 6 个 seed 平均）：
+\begin{itemize}
+    \item Denver：$\Delta CF_{\text{cum}}\approx +28.0$，$\Delta Terminal\approx +100.1$，并将债务从约 67 降至 0（去杠杆），胜率变化约 $-0.016$；
+    \item Nashville：$\Delta CF_{\text{cum}}\approx +20.1$，$\Delta Terminal\approx +74.0$，债务由 67 降至 0，胜率变化约 $-0.040$；
+    \item SanDiego：$\Delta CF_{\text{cum}}\approx +27.8$，$\Delta Terminal\approx +100.3$，债务由 67 降至 0，胜率变化约 $-0.009$；
+    \item Toronto：$\Delta CF_{\text{cum}}\approx +26.4$，$\Delta Terminal\approx +101.8$，债务由 67 降至 0，胜率变化约 $-0.005$。
+\end{itemize}
+
+对比“高杠杆 + 高薪抢星”的 Aggressive 路径，其在所有选址下都显著恶化终值（例如 Denver 下终值约从 431 降至 296，且债务升至约 179），并伴随更低的累计现金流与更差的竞技结果。这一结果的机制解释是：扩军导致的 $N_{\text{Star,FA}}\downarrow$ 与 $\text{Bidding}\uparrow$ 使“高薪补强”的边际效率下降，同时 Payroll 上升与利息/风险惩罚压缩利润，最终出现“花更多钱但买不到同比例胜率提升”的现象。
+
+#### (a) “降低杠杆冲动”在代码中如何量化？
+
+我们并非凭空给出“扩军年应降低杠杆冲动”的口号，而是通过扩军冲击改变“同一杠杆动作的净收益”，并观察到 PPO 在扩军年 Offseason 的债务动作均值明显低于基线：
+\begin{itemize}
+    \item Baseline 在扩军年（2026 Offseason）维持 $a_{\text{debt}}\approx 2$（Maintain）；
+    \item PPO 在扩军年 Offseason 的均值约为 $a_{\text{debt}}\approx 1.0\sim 1.2$（Deleverage），同时薪资档位保持在中等水平（$a_{\text{salary}}\approx 2.3\sim 3.0$）而非极端压缩；
+    \item 该统计由 `q3_policy_comparison_detail.csv` 中 `marker=offseason_decision` 的记录直接给出，可复现。
+\end{itemize}
+
+### 5) 新球队选址如何影响模型与最终策略（敏感性结论）
+
+选址通过 $(\Delta_{market},\Delta_{compete},media\_bonus)$ 进入环境与财务转移，导致：
+\begin{itemize}
+    \item 直接影响门票收入上限（$\mu_{\text{size}}$）与竞争稀释（$compete_{local}$）；
+    \item 间接影响最优 roster/salary 操作强度（因为补强边际效率和 Payroll 结构改变）；
+    \item 媒体 bonus 同时抬升当期媒体收入与估值增长，可能抵消部分门票稀释。
+\end{itemize}
+在我们的情景集里，Toronto（$\Delta_{market}>0$ 且 $\Delta_{compete}=0$）对 Indiana 的长期终值最有利；Nashville（$\Delta_{market}<0$ 且 $\Delta_{compete}>0$）更不利。
+
+### 6) 哪些球队所有者受益/受损（联盟层代理指标与可解释性）
+
+题目还要求指出“扩军选址下，哪些球队受益/受损”。由于我们缺乏每支球队的完整财务报表与交易细节，本节采用一个\textbf{可解释的联盟层代理评分}（实现：`project/experiments/q3_expansion_site_sensitivity.py:_league_impact`）：
+
+市场规模指数（attendance proxy）：
+$$
+\mu_i = \frac{AvgAttendance_i}{LeagueAvg},
+$$
+解释：$\mu_i>1$ 表示该队拥有更大的球迷基础，因而更能放大媒体红利。
+
+强度指数（player-based ELO proxy）：
+$$
+s_i = \frac{ELO_i - 1500}{100},
+$$
+解释：$s_i$ 越高表示“强队/明星多”，在稀缺度上升时更不易被抽空。
+
+综合影响分数（越高越受益）：
+$$
+Impact_i = 0.6\,media\_bonus\,\mu_i
++ \Delta_{market}\mu_i
+- 0.05\Delta_{compete}(1-\mu_i)
+- LocalPenalty
+- 0.02\,Scarcity(1-s_i),
+$$
+其中：
+\begin{itemize}
+    \item $LocalPenalty$：若扩军城市与某队地理/市场重叠，则该队被额外扣分（例如 Nashville 的本地队列包含 IND/ATL/WAS）；
+    \item $Scarcity=|\Delta_{\text{Star,FA}}|$：扩军导致自由市场稀缺度上升的强度；
+    \item 最后一项表示“弱队在稀缺冲击下更难通过自由市场补强”，因此更不利。
+\end{itemize}
+
+该代理指标可以直接输出每个选址的 Top3/Bottom3 受益/受损球队，并且每个项都能由 attendance 与 player-based strength 解释，避免“只给结论”的问题。
+
+---
+
+## Q4 额外业务决策（票价 / 股权）
+
+### 1) 单维策略控制（严格 Action Mask）
+
+为保证“只讨论票价或股权”，定义单维动作集：
+$$
+\mathcal{A}_{mode}(s)=\{a\mid a_j=K_j,\ j\neq target\}
+$$
+- **ticket 模式**：仅 $a_{ticket}$ 可变
+- **equity 模式**：仅 $a_{equity}$ 可变，并强制股权上限
+
+### 2) 策略学习与评估
+
+- **Baseline**：保持当前合法动作（nearest valid）。
+- **Learned**：PPO（线性策略）在单维动作空间内训练。
+
+PPO 参数（与代码一致）：
+- steps\_per\_update = 128
+- epochs = 2
+- 训练轮数 = 12
+- 评估 episode = 8
+
+### 3) 输出与作用
+
+实现脚本：`project/experiments/q4_dynamic_ticket_or_equity.py`  
+输出文件：
+- `project/experiments/output/q4_dynamic_policy_summary_ticket.md`
+- `project/experiments/output/q4_dynamic_policy_summary_equity.md`
+
+该结果用于回答“票价最优策略”或“股权激励合理水平”。
+
+---
+
+## 复现命令（附录）
+```
+python project/experiments/q2_recruitment_strategy.py
+python project/experiments/q3_expansion_site_sensitivity.py
+python project/experiments/q3_expansion_policy_comparison.py
+python project/experiments/q4_dynamic_ticket_or_equity.py --mode ticket
+python project/experiments/q4_dynamic_ticket_or_equity.py --mode equity
+```

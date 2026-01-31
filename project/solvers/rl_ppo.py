@@ -69,13 +69,14 @@ class LinearPolicy:
 
 
 class PPOAgent:
-    def __init__(self, env: MDPEnv, cfg: PPOConfig | None = None, seed: int = 0):
+    def __init__(self, env: MDPEnv, cfg: PPOConfig | None = None, seed: int = 0, allowed_fn=None):
         self.env = env
         self.cfg = cfg or PPOConfig()
         dummy_state = env.reset(seed=seed)
         self.input_dim = dummy_state.to_vector(env.config).shape[0]
         self.action_dims = [7, 6, 7, 4, 5, 5]
         self.policy = LinearPolicy(self.input_dim, self.action_dims, seed=seed)
+        self.allowed_fn = allowed_fn
 
     def train(self, episodes: int = 50) -> None:
         steps = self.cfg.steps_per_update
@@ -95,7 +96,7 @@ class PPOAgent:
         state = self.env.reset()
         for _ in range(steps):
             x = state.to_vector(self.env.config)
-            allowed = action_space_per_dim(state.Theta, state.K)
+            allowed = self._allowed(state)
             action, logp, _ = self.policy.sample_action(x, allowed)
             value = self.policy.value(x)
 
@@ -191,6 +192,11 @@ class PPOAgent:
 
     def act(self, state) -> ActionVector:
         x = state.to_vector(self.env.config)
-        allowed = action_space_per_dim(state.Theta, state.K)
+        allowed = self._allowed(state)
         action, _, _ = self.policy.sample_action(x, allowed)
         return action
+
+    def _allowed(self, state):
+        if self.allowed_fn is not None:
+            return self.allowed_fn(state)
+        return action_space_per_dim(state.Theta, state.K)

@@ -416,4 +416,8 @@ def build_initial_state_from_data(
     R = build_competitive_state_from_data(rng, year=year, config=cfg)
     F = build_financial_state_from_data(cfg, K)
     E = build_env_state_from_data(cfg)
-    return State(R=R, F=F, E=E, Theta=PHASE_OFFSEASON, K=K, year=cfg.start_year)
+    # `year` serves two purposes:
+    # 1) selecting which season's public data to initialize from
+    # 2) setting the simulation clock (so expansion years, media cycles, etc. trigger correctly)
+    state_year = cfg.start_year if year is None else int(year)
+    return State(R=R, F=F, E=E, Theta=PHASE_OFFSEASON, K=K, year=state_year)

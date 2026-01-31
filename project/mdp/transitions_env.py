@@ -4,6 +4,7 @@ import numpy as np
 
 from project.mdp.config import MDPConfig
 from project.mdp.state import EnvState
+from project.mdp.phase import PHASE_OFFSEASON
 
 CAP_GROWTH_SMOOTH = 0
 CAP_GROWTH_SPIKE = 1
@@ -12,6 +13,7 @@ CAP_GROWTH_SPIKE = 1
 def env_transition(
     E: EnvState,
     year: int,
+    theta_next: str,
     rng: np.random.Generator,
     config: MDPConfig,
     expansion_market_delta: Optional[float] = None,
@@ -37,7 +39,10 @@ def env_transition(
     E_next.i_expansion = 1 if year in config.expansion_years else 0
 
     # Market and FA adjustments when expansion happens
-    if E_next.i_expansion == 1:
+    # IMPORTANT: treat expansion as a one-time regime shift at the start of the expansion season.
+    # We apply the discrete shock only when transitioning into the Offseason of an expansion year,
+    # otherwise the shock would be repeatedly applied at every phase step within the same year.
+    if E_next.i_expansion == 1 and theta_next == PHASE_OFFSEASON:
         m_delta = expansion_market_delta if expansion_market_delta is not None else config.expansion_market_delta
         c_delta = expansion_compete_delta if expansion_compete_delta is not None else config.expansion_compete_delta
         E_next.mu_size = max(0.5, min(2.0, E_next.mu_size + m_delta))

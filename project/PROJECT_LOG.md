@@ -17,6 +17,8 @@
 9. **Player-based competitive module**: added KMeans clustering over real player skill vectors (k=5), lineup construction by position clusters, and PCA/profile plots for paper figures. Connected player-based Q/C/P into the competitive state builder, and enabled roster updates driven by real player pool.
 10. **Action space refinement**: expanded action discretization (roster/salary/ticket/marketing/debt/equity) and updated mappings/normalization accordingly.
 11. **Solver upgrade**: added heuristic value function and greedy rollout candidates in MCTS to reduce variance and improve planning quality.
+12. **Q2/Q3/Q4 fixes**: added player-level recruitment strategy outputs (Draft/FA/Trade), expansion winners/losers using market+strength proxies, and strict single-dimension policy control for ticket/equity PPO.
+13. **Skill weight calibration**: added ridge/lasso weight fitting from team outcomes (Win%/NetRtg/ELO proxy) with sensitivity analysis; stored in `project/data/skill_weights.json`.
 
 ---
 
@@ -76,6 +78,9 @@ where competitive, financial, and environmental dynamics are jointly simulated.
 
 ### `project/data/prepare_player_data.py`
 - **What it does**: Builds a clean player skill file from `allplayers.csv` and derives `DWS_40` from `DWS` and `MP`.
+
+### `project/data/calibrate_skill_weights.py`
+- **What it does**: Fits ridge/lasso weights for `skill_score` from team outcomes (Win%/NetRtg/ELO proxy), writes `project/data/skill_weights.json` and `project/data/skill_weights_report.md`, and runs sensitivity analysis on candidate stability.
 
 ### `project/experiments/player_cluster_report.py`
 - **What it does**: Generates figures and a short markdown report for the cluster analysis (for direct use in the paper).
@@ -147,13 +152,13 @@ where competitive, financial, and environmental dynamics are jointly simulated.
 - Produces leverage policy map under macro & CF buckets.
 
 ### `project/experiments/q2_recruitment_strategy.py`
-- Enumerates roster/salary actions in offseason; ranks by terminal value.
+- Builds Draft/FA/Trade candidate pools from real players and ranks by owner-value score (ΔQ, win gain, star premium, cost proxy).
 
 ### `project/experiments/q3_expansion_site_sensitivity.py`
-- Tests expansion site scenarios; compares baseline vs learned PPO.
+- Tests expansion site scenarios; compares Indiana baseline vs PPO, and outputs league winners/losers based on market-size (attendance proxy) + team-strength (player-based ELO) + local competition.
 
 ### `project/experiments/q4_dynamic_ticket_or_equity.py`
-- Dynamic ticket/equity policy analysis with PPO.
+- Dynamic ticket/equity policy analysis with PPO using strict action masking (only target dimension can move). Outputs `q4_dynamic_policy_summary_ticket.md` and `..._equity.md`.
 
 ### `project/experiments/q5_letter_generator.py`
 - Generates the owner/GM recommendation letter using Q1–Q4 outputs.
@@ -163,7 +168,7 @@ where competitive, financial, and environmental dynamics are jointly simulated.
 ## Known data limits & assumptions
 - Ticket price history and marketing spend are not available; elasticity and marketing lift are estimated from attendance residual variance.
 - Valuations dataset has limited revenue history; base revenue for 2025 uses 2024 revenue when available.
-- Competitive state `Q_t` is proxied by team-level ORtg/DRtg/NetRtg/SRS (no player-level box scores).
+- Competitive state `Q_t` is player-based when `allplayers.csv` is available; falls back to team-level ORtg/DRtg/NetRtg/SRS only if player data is missing.
 
 ---
 
@@ -193,7 +198,8 @@ These refinements required updates to:
    - `python project/experiments/q1_leverage_policy_map.py`
    - `python project/experiments/q2_recruitment_strategy.py`
    - `python project/experiments/q3_expansion_site_sensitivity.py`
-   - `python project/experiments/q4_dynamic_ticket_or_equity.py`
+   - `python project/experiments/q4_dynamic_ticket_or_equity.py --mode ticket`
+   - `python project/experiments/q4_dynamic_ticket_or_equity.py --mode equity`
    - `python project/experiments/q5_letter_generator.py`
 
 ---
