@@ -74,7 +74,7 @@ class PPOAgent:
         self.cfg = cfg or PPOConfig()
         dummy_state = env.reset(seed=seed)
         self.input_dim = dummy_state.to_vector(env.config).shape[0]
-        self.action_dims = [5, 4, 5, 3, 3, 4]
+        self.action_dims = [7, 6, 7, 4, 5, 5]
         self.policy = LinearPolicy(self.input_dim, self.action_dims, seed=seed)
 
     def train(self, episodes: int = 50) -> None:

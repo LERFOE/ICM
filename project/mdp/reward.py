@@ -29,8 +29,9 @@ def compute_reward(
     cf_term = config.w_cf * (F_next.CF / max(config.cf_scale, 1e-6))
     val_term = config.w_val * F_next.valuation_growth
     win_term = config.w_win if Theta == PHASE_PLAYOFF else 0.0
+    win_pct_term = config.w_win_pct * (float(R_next.W[0]) - config.win_pct_baseline)
     penalty = risk_penalty(F_next, R_next, config)
-    return cf_term + val_term + win_term - penalty
+    return cf_term + val_term + win_term + win_pct_term - penalty
 
 
 def terminal_value(F: FinancialState) -> float:

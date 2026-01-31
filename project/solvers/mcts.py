@@ -32,6 +32,8 @@ class MCTS:
         horizon: int = 6,
         gamma: float = 0.95,
         c_puct: float = 1.2,
+        value_fn=None,
+        rollout_candidates: int = 5,
         seed: int = 42,
     ):
         self.env = env
@@ -39,6 +41,8 @@ class MCTS:
         self.horizon = horizon
         self.gamma = gamma
         self.c_puct = c_puct
+        self.value_fn = value_fn
+        self.rollout_candidates = rollout_candidates
         self.rng = np.random.default_rng(seed)
 
     def search(self, root_state: State) -> ActionVector:
@@ -101,7 +105,7 @@ class MCTS:
 
     def _expand(self, node: MCTSNode) -> Tuple[MCTSNode, float, bool]:
         if node.untried is None:
-            node.untried = list(enumerate_valid_actions(node.state.Theta, node.state.K))
+            node.untried = list(self._valid_actions(node.state))
             self.rng.shuffle(node.untried)
 
         # Progressive widening
@@ -123,18 +127,46 @@ class MCTS:
         discount = 1.0
         current = state
         for _ in range(depth):
-            action = self._random_action(current)
+            action = self._rollout_action(current)
             next_state, reward, done, _ = self.env.step(current, action, self.rng)
             total += discount * reward
             discount *= self.gamma
             current = next_state
             if done:
                 break
+        if self.value_fn is not None and depth > 0:
+            total += discount * float(self.value_fn(current, self.env.config))
         return total
 
     def _random_action(self, state: State) -> ActionVector:
-        actions = list(enumerate_valid_actions(state.Theta, state.K))
+        actions = list(self._valid_actions(state))
         return actions[self.rng.integers(0, len(actions))]
+
+    def _rollout_action(self, state: State) -> ActionVector:
+        actions = list(self._valid_actions(state))
+        if len(actions) == 1:
+            return actions[0]
+        # Evaluate a small subset with heuristic value
+        if self.value_fn is None or self.rollout_candidates <= 1:
+            return actions[self.rng.integers(0, len(actions))]
+
+        candidates = self.rng.choice(actions, size=min(self.rollout_candidates, len(actions)), replace=False)
+        best_action = None
+        best_score = -1e9
+        for action in candidates:
+            next_state, reward, done, _ = self.env.step(state, action, self.rng)
+            score = reward
+            if not done:
+                score += 0.5 * float(self.value_fn(next_state, self.env.config))
+            if score > best_score:
+                best_score = score
+                best_action = action
+        return best_action if best_action is not None else actions[0]
+
+    def _valid_actions(self, state: State):
+        if hasattr(self.env, "valid_actions"):
+            return self.env.valid_actions(state)
+        return list(enumerate_valid_actions(state.Theta, state.K))
 
     def _backprop(self, node: MCTSNode, reward: float) -> None:
         current = node

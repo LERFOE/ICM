@@ -36,13 +36,19 @@ def fin_transition_and_reward(
     macro_factor = config.macro_revenue_factor[E_next.macro]
     market_factor = E_next.mu_size
 
+    # Ticket price elasticity: Revenue scales as P^(1 - e)
+    ticket_revenue_mult = ticket_mult ** (1.0 - config.ticket_elasticity)
+    # Marketing lift on attendance
+    marketing_att_mult = 1.0 + config.marketing_attendance_beta * marketing_rate
+
     gate_revenue = (
         config.base_gate_revenue
         * performance_factor
         * star_factor
         * macro_factor
         * market_factor
-        * ticket_mult
+        * ticket_revenue_mult
+        * marketing_att_mult
     )
 
     sponsor_revenue = config.base_sponsor_revenue * (1.0 + config.sponsor_beta * marketing_rate)
@@ -55,9 +61,9 @@ def fin_transition_and_reward(
 
     # Payroll
     payroll = config.salary_cap * config.salary_multipliers[action.a_salary]
-    if action.a_roster in (3, 4):
+    if action.a_roster >= 4:
         payroll *= 1.1
-    elif action.a_roster in (0, 1):
+    elif action.a_roster <= 2:
         payroll *= 0.95
 
     payroll_cash = payroll * (1.0 - equity_rate)

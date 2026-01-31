@@ -1,0 +1,108 @@
+Season,Team,GP,Total_Attendance,Avg_Attendance
+2014,Phoenix Mercury,17.0,162464.0,9557.0
+2014,Minnesota Lynx,17.0,158656.0,9333.0
+2014,New York Liberty,17.0,152128.0,8949.0
+2014,Washington Mystics,17.0,142413.0,8377.0
+2014,Los Angeles Sparks,17.0,140901.0,8288.0
+2014,Indiana Fever,17.0,134306.0,7900.0
+2014,San Antonio Stars,17.0,131226.0,7719.0
+2014,Seattle Storm,17.0,114181.0,6717.0
+2014,Chicago Sky,17.0,113640.0,6685.0
+2014,Connecticut Sun,17.0,101662.0,5980.0
+2014,Atlanta Dream,17.0,99687.0,5864.0
+2014,Tulsa Shock,17.0,94626.0,5566.0
+2015,Phoenix Mercury,17.0,169077.0,9946.0
+2015,Minnesota Lynx,17.0,159189.0,9364.0
+2015,New York Liberty,17.0,155695.0,9159.0
+2015,Los Angeles Sparks,17.0,154097.0,9065.0
+2015,Washington Mystics,17.0,131136.0,7714.0
+2015,Indiana Fever,17.0,127244.0,7485.0
+2015,Chicago Sky,17.0,117201.0,6894.0
+2015,Seattle Storm,17.0,110767.0,6516.0
+2015,Atlanta Dream,17.0,104080.0,6122.0
+2015,Connecticut Sun,17.0,94467.0,5557.0
+2015,Tulsa Shock,17.0,87844.0,5167.0
+2015,San Antonio Stars,17.0,82130.0,4831.0
+2016,Phoenix Mercury,17.0,175965.0,10351.0
+2016,New York Liberty,17.0,165300.0,9724.0
+2016,Los Angeles Sparks,17.0,163839.0,9638.0
+2016,Minnesota Lynx,17.0,157523.0,9266.0
+2016,Indiana Fever,17.0,145771.0,8575.0
+2016,Seattle Storm,17.0,122912.0,7230.0
+2016,Chicago Sky,17.0,119147.0,7009.0
+2016,Washington Mystics,17.0,117795.0,6929.0
+2016,San Antonio Stars,17.0,108551.0,6385.0
+2016,Connecticut Sun,17.0,99236.0,5837.0
+2016,Atlanta Dream,17.0,95431.0,5614.0
+2016,Dallas Wings,17.0,90060.0,5298.0
+2017,Los Angeles Sparks,17.0,192957.0,11350.0
+2017,Minnesota Lynx,17.0,176919.0,10407.0
+2017,Phoenix Mercury,17.0,168516.0,9913.0
+2017,New York Liberty,17.0,168107.0,9889.0
+2017,Washington Mystics,17.0,132112.0,7771.0
+2017,Seattle Storm,17.0,130975.0,7704.0
+2017,Indiana Fever,17.0,128141.0,7538.0
+2017,Connecticut Sun,17.0,114370.0,6728.0
+2017,Chicago Sky,17.0,111919.0,6583.0
+2017,San Antonio Stars,17.0,108554.0,6386.0
+2017,Atlanta Dream,17.0,75684.0,4452.0
+2017,Dallas Wings,17.0,65824.0,3872.0
+2018,Los Angeles Sparks,17.0,180910.0,10642.0
+2018,Minnesota Lynx,17.0,170620.0,10036.0
+2018,Phoenix Mercury,17.0,169149.0,9950.0
+2018,Seattle Storm,17.0,137846.0,8109.0
+2018,Connecticut Sun,17.0,113711.0,6689.0
+2018,Chicago Sky,17.0,108091.0,6358.0
+2018,Indiana Fever,17.0,107295.0,6311.0
+2018,Washington Mystics,16.0,98176.0,6136.0
+2018,Las Vegas Aces,17.0,90219.0,5307.0
+2018,Dallas Wings,17.0,80782.0,4752.0
+2018,Atlanta Dream,17.0,71305.0,4194.0
+2018,New York Liberty,17.0,47988.0,2823.0
+2019,Los Angeles Sparks,17.0,192224.0,11307.0
+2019,Minnesota Lynx,17.0,173273.0,10193.0
+2019,Phoenix Mercury,17.0,154170.0,9069.0
+2019,Seattle Storm,17.0,128548.0,7562.0
+2019,Connecticut Sun,17.0,116300.0,6841.0
+2019,Chicago Sky,17.0,114727.0,6749.0
+2019,Indiana Fever,17.0,100078.0,5887.0
+2019,Washington Mystics,17.0,84988.0,4999.0
+2019,Las Vegas Aces,17.0,79373.0,4669.0
+2019,Dallas Wings,17.0,77288.0,4546.0
+2019,Atlanta Dream,17.0,72596.0,4270.0
+2019,New York Liberty,17.0,38067.0,2239.0
+2021,Phoenix Mercury,16.0,93585.0,5849.0
+2021,Chicago Sky,15.0,47805.0,3187.0
+2021,Las Vegas Aces,16.0,50036.0,3127.0
+2021,Connecticut Sun,16.0,46890.0,2931.0
+2021,Minnesota Lynx,16.0,43139.0,2696.0
+2021,Seattle Storm,16.0,41715.0,2607.0
+2021,Washington Mystics,16.0,33802.0,2113.0
+2021,Dallas Wings,16.0,33617.0,2101.0
+2021,New York Liberty,16.0,28113.0,1757.0
+2021,Atlanta Dream,16.0,21549.0,1347.0
+2021,Los Angeles Sparks,16.0,18319.0,1145.0
+2022,Seattle Storm,18.0,191367.0,10632.0
+2022,Phoenix Mercury,18.0,143530.0,7974.0
+2022,Minnesota Lynx,18.0,133988.0,7444.0
+2022,Chicago Sky,18.0,129241.0,7180.0
+2022,Connecticut Sun,18.0,102821.0,5712.0
+2022,Los Angeles Sparks,18.0,101747.0,5653.0
+2022,Las Vegas Aces,18.0,100922.0,5607.0
+2022,New York Liberty,18.0,95882.0,5327.0
+2022,Washington Mystics,18.0,71686.0,3983.0
+2022,Dallas Wings,18.0,68181.0,3788.0
+2022,Atlanta Dream,18.0,48279.0,2682.0
+2022,Indiana Fever,18.0,31964.0,1776.0
+2023,Las Vegas Aces,20.0,191024.0,9551.0
+2023,Phoenix Mercury,20.0,183935.0,9197.0
+2023,Seattle Storm,20.0,178581.0,8929.0
+2023,Minnesota Lynx,20.0,155539.0,7777.0
+2023,New York Liberty,20.0,155535.0,7777.0
+2023,Chicago Sky,20.0,144834.0,7242.0
+2023,Los Angeles Sparks,20.0,131070.0,6554.0
+2023,Connecticut Sun,20.0,124882.0,6244.0
+2023,Dallas Wings,20.0,92811.0,4641.0
+2023,Washington Mystics,20.0,87813.0,4391.0
+2023,Indiana Fever,20.0,81336.0,4067.0
+2023,Atlanta Dream,20.0,60128.0,3006.0

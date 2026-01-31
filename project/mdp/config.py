@@ -7,6 +7,7 @@ class MDPConfig:
     # Time and horizon
     start_year: int = 2025
     horizon_years: int = 5
+    team_code: str = "IND"
 
     # Roster and league scale (all monetary units in millions USD)
     roster_size: int = 12
@@ -20,8 +21,11 @@ class MDPConfig:
     base_media_revenue: float = 15.0
     base_sponsor_revenue: float = 8.0
     rev_win_beta: float = 0.6
+    rev_win_beta_scale: float = 1.70
     rev_star_beta: float = 0.3
     sponsor_beta: float = 0.5
+    use_lasso: bool = True
+    lasso_alpha: float = 0.15
 
     # Cost components
     fixed_ops_cost: float = 4.0
@@ -29,22 +33,27 @@ class MDPConfig:
     leverage_interest_spread: float = 0.04
 
     # Ticket, marketing, equity mappings
-    ticket_multipliers: List[float] = field(default_factory=lambda: [0.9, 1.0, 1.1, 1.2, 1.3])
-    marketing_rates: List[float] = field(default_factory=lambda: [0.0, 0.05, 0.10])
-    equity_rates: List[float] = field(default_factory=lambda: [0.0, 0.01, 0.02, 0.05])
+    ticket_multipliers: List[float] = field(
+        default_factory=lambda: [0.85, 0.95, 1.0, 1.05, 1.10, 1.20, 1.30]
+    )
+    marketing_rates: List[float] = field(default_factory=lambda: [0.0, 0.03, 0.06, 0.10])
+    equity_rates: List[float] = field(default_factory=lambda: [0.0, 0.005, 0.01, 0.02, 0.03])
+    # Demand elasticity and marketing lift (data-calibrated)
+    ticket_elasticity: float = 0.8
+    marketing_attendance_beta: float = 0.8
 
     # Salary spending multipliers (relative to cap)
-    salary_multipliers: List[float] = field(default_factory=lambda: [0.9, 1.05, 1.2, 1.35])
+    salary_multipliers: List[float] = field(default_factory=lambda: [0.9, 1.0, 1.1, 1.2, 1.3, 1.45])
     tax_line_multiplier: float = 1.15
     apron_multiplier: float = 1.30
     tax_rate: float = 0.5
 
     # Debt actions (ratio to FV)
-    debt_delta_ratio: List[float] = field(default_factory=lambda: [-0.05, 0.0, 0.08])
+    debt_delta_ratio: List[float] = field(default_factory=lambda: [-0.08, -0.04, 0.0, 0.04, 0.08])
 
     # Valuation growth
     base_growth: float = 0.03
-    growth_win_beta: float = 0.08
+    growth_win_beta: float = 0.15
     growth_marketing_beta: float = 0.10
     growth_macro: Dict[int, float] = field(default_factory=lambda: {0: -0.02, 1: 0.0, 2: 0.02})
     media_spike_growth: float = 0.20
@@ -84,15 +93,15 @@ class MDPConfig:
     win_eta0: float = 0.0
     win_eta1: float = 1.1
     win_eta2: float = 0.6
-    win_eta3: float = 0.4
+    win_eta3: float = 0.7
     win_eta_sos: float = 0.8
     win_noise: float = 0.05
     syn_recovery: float = 0.2
 
     # Roster update
-    roster_delta: List[float] = field(default_factory=lambda: [-0.6, -0.25, 0.0, 0.25, 0.6])
-    salary_factor: List[float] = field(default_factory=lambda: [0.6, 0.9, 1.1, 1.3])
-    syn_penalty: float = 0.6
+    roster_delta: List[float] = field(default_factory=lambda: [-0.7, -0.4, -0.15, 0.0, 0.25, 0.5, 0.9])
+    salary_factor: List[float] = field(default_factory=lambda: [0.6, 0.8, 0.95, 1.05, 1.25, 1.55])
+    syn_penalty: float = 0.35
     injury_prob: float = 0.05
     injury_severity_range: List[float] = field(default_factory=lambda: [0.1, 0.3])
     injury_syn_penalty: float = 0.6
@@ -101,13 +110,15 @@ class MDPConfig:
     w_cf: float = 1.0
     w_val: float = 0.6
     w_win: float = 0.2
+    w_win_pct: float = 0.4
+    win_pct_baseline: float = 0.5
     cf_scale: float = 5.0
 
     # Risk penalties
     leverage_soft: float = 0.35
     leverage_hard: float = 0.60
-    leverage_soft_penalty: float = 1.0
-    leverage_hard_penalty: float = 4.0
+    leverage_soft_penalty: float = 2.0
+    leverage_hard_penalty: float = 6.0
     tax_penalty: float = 0.5
     commit_threshold: float = 0.55
     commit_penalty: float = 0.8
@@ -116,4 +127,8 @@ class MDPConfig:
     # Termination
     max_leverage: float = 0.85
     bankruptcy_cash: float = -10.0
-    terminal_weight: float = 1.0
+    terminal_weight: float = 3.0
+
+    # Action caps (to limit leverage/dilution aggressiveness)
+    max_debt_action: int | None = 1   # cap leverage-up to protect terminal value
+    max_equity_action: int | None = 1 # allow 0/1 only by default

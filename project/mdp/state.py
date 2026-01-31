@@ -18,6 +18,7 @@ class CompetitiveState:
     Syn: float
     O: np.ndarray
     SOS: float
+    roster_ids: List[int]
 
     def copy(self) -> "CompetitiveState":
         return CompetitiveState(
@@ -31,6 +32,7 @@ class CompetitiveState:
             Syn=float(self.Syn),
             O=self.O.copy(),
             SOS=float(self.SOS),
+            roster_ids=list(self.roster_ids),
         )
 
 
@@ -158,7 +160,7 @@ class State:
         phase_onehot = np.zeros(len(PHASE_TO_INDEX), dtype=float)
         phase_onehot[PHASE_TO_INDEX[self.Theta]] = 1.0
 
-        k_vec = np.array(self.K, dtype=float) / np.array([4, 3, 4, 2, 2, 3], dtype=float)
+        k_vec = np.array(self.K, dtype=float) / np.array([6, 5, 6, 3, 4, 4], dtype=float)
 
         return np.concatenate([r_vec, f_vec, e_vec, phase_onehot, k_vec])
 
@@ -174,7 +176,7 @@ def initial_competitive_state(config: MDPConfig, rng: np.random.Generator) -> Co
     Syn = 0.0
     O = np.array([1500.0, 80.0, 5.0], dtype=float)
     SOS = 1.0
-    return CompetitiveState(Q, C, P, L, A, W, ELO, Syn, O, SOS)
+    return CompetitiveState(Q, C, P, L, A, W, ELO, Syn, O, SOS, roster_ids=[])
 
 
 def initial_financial_state(config: MDPConfig, K: List[int]) -> FinancialState:
@@ -213,7 +215,7 @@ def initial_env_state(config: MDPConfig) -> EnvState:
 
 
 def initial_state(config: MDPConfig, rng: np.random.Generator) -> State:
-    K = [2, 1, 1, 1, 1, 0]
+    K = [3, 2, 2, 1, 2, 0]
     R = initial_competitive_state(config, rng)
     F = initial_financial_state(config, K)
     E = initial_env_state(config)

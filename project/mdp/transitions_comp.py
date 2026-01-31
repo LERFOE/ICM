@@ -18,7 +18,11 @@ def roster_update(
     E: EnvState,
     rng: np.random.Generator,
     config: MDPConfig,
+    player_model=None,
 ) -> CompetitiveState:
+    if player_model is not None:
+        return player_model.roster_update(R, action, rng, config)
+
     R_next = R.copy()
 
     # Skill delta influenced by roster and salary actions
@@ -34,13 +38,13 @@ def roster_update(
 
     # Archetype mix: shift one slot toward development or stars
     C = R_next.C.copy()
-    if action.a_roster in (0, 1):
+    if action.a_roster <= 2:
         # move one count to developmental archetype (index 0)
         idx_from = int(rng.integers(1, len(C)))
         if C[idx_from] > 0:
             C[idx_from] -= 1
             C[0] += 1
-    elif action.a_roster in (3, 4):
+    elif action.a_roster >= 4:
         idx_from = int(rng.integers(0, len(C)))
         if C[idx_from] > 0:
             C[idx_from] -= 1
@@ -49,7 +53,7 @@ def roster_update(
 
     # Position balance: slight nudges but keep totals
     P = R_next.P.copy()
-    if action.a_roster == 4:
+    if action.a_roster >= 6:
         # bias to wings/forwards
         P[2] += 1
         P[3] += 1
@@ -64,12 +68,12 @@ def roster_update(
 
     # Contract maturity buckets
     L = R_next.L.copy()
-    if action.a_roster in (0, 1):
+    if action.a_roster <= 2:
         # more expirings
         shift = min(1, L[2])
         L[2] -= shift
         L[0] += shift
-    elif action.a_roster in (3, 4):
+    elif action.a_roster >= 4:
         shift = min(1, L[0])
         L[0] -= shift
         L[2] += shift
@@ -77,10 +81,10 @@ def roster_update(
 
     # Age profile
     A = R_next.A.copy()
-    if action.a_roster in (0, 1):
+    if action.a_roster <= 2:
         A[0] = max(23.0, A[0] - 0.6)
         A[2] = max(0.0, A[2] - 1.0)
-    elif action.a_roster in (3, 4):
+    elif action.a_roster >= 4:
         A[0] = min(32.0, A[0] + 0.6)
         A[2] = min(12.0, A[2] + 1.0)
     A[1] = max(0.5, A[1] + rng.normal(0, 0.2))
@@ -125,9 +129,19 @@ def game_sim_update(
     E: EnvState,
     rng: np.random.Generator,
     config: MDPConfig,
+    player_model=None,
+    team_code: str | None = None,
 ) -> Tuple[CompetitiveState, Dict[str, float]]:
     R_next = R.copy()
     info: Dict[str, float] = {}
+
+    # Sample opponent from real-player league context if available
+    if player_model is not None:
+        opp = player_model.sample_opponent(team_code, rng)
+        R_next.O[0] = float(opp.get("elo", 1500.0))
+        R_next.O[1] = float(opp.get("pace", 80.0))
+        R_next.O[2] = float(opp.get("stars", 5.0))
+        R_next.SOS = np.clip(1.0 + (R_next.O[0] - 1500.0) / 4000.0, 0.85, 1.15)
 
     elo_diff = (R_next.ELO - R_next.O[0]) / 400.0
     skill_term = np.tanh(float(np.mean(R_next.Q)))
@@ -171,11 +185,12 @@ def game_sim_update(
     # Synergy recovery
     R_next.Syn += config.syn_recovery * (0.0 - R_next.Syn) + rng.normal(0.0, 0.05)
 
-    # Opponent stats and SOS drift
-    R_next.O[0] = np.clip(rng.normal(1500.0, 50.0), 1400.0, 1600.0)
-    R_next.O[1] = np.clip(rng.normal(80.0, 10.0), 40.0, 120.0)
-    R_next.O[2] = max(0.0, rng.normal(5.0, 2.0))
-    R_next.SOS = np.clip(1.0 + (R_next.O[0] - 1500.0) / 4000.0, 0.85, 1.15)
+    # Opponent stats and SOS drift (fallback to synthetic if no player model)
+    if player_model is None:
+        R_next.O[0] = np.clip(rng.normal(1500.0, 50.0), 1400.0, 1600.0)
+        R_next.O[1] = np.clip(rng.normal(80.0, 10.0), 40.0, 120.0)
+        R_next.O[2] = max(0.0, rng.normal(5.0, 2.0))
+        R_next.SOS = np.clip(1.0 + (R_next.O[0] - 1500.0) / 4000.0, 0.85, 1.15)
 
     info["win_pct"] = win_pct
     return R_next, info
@@ -188,15 +203,19 @@ def comp_transition(
     E_next: EnvState,
     rng: np.random.Generator,
     config: MDPConfig,
+    player_model=None,
+    team_code: str | None = None,
 ) -> Tuple[CompetitiveState, Dict[str, float]]:
     info: Dict[str, float] = {}
     if Theta in (PHASE_OFFSEASON, PHASE_TRADE_DEADLINE):
-        R_mid = roster_update(R, action, E_next, rng, config)
+        R_mid = roster_update(R, action, E_next, rng, config, player_model=player_model)
     else:
         R_mid = roll_forward_contract_and_age(R, rng, config)
 
     if Theta in (PHASE_REGULAR, PHASE_TRADE_DEADLINE, PHASE_PLAYOFF):
-        R_next, game_info = game_sim_update(R_mid, E_next, rng, config)
+        R_next, game_info = game_sim_update(
+            R_mid, E_next, rng, config, player_model=player_model, team_code=team_code
+        )
         info.update(game_info)
     else:
         R_next = R_mid

@@ -1,0 +1,5 @@
+site,baseline_terminal,learned_terminal,delta_terminal,baseline_cf,learned_cf,delta_cf
+Nashville,902.619,85.944,-816.675,11.978,-4.707,-16.684
+Denver,902.619,79.566,-823.053,12.16,-4.81,-16.97
+Toronto,902.619,51.422,-851.197,14.252,-3.27,-17.522
+SanDiego,902.619,42.863,-859.755,12.559,-2.201,-14.76

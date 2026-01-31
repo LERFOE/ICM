@@ -12,9 +12,12 @@ from project.mdp.state import State
 PolicyFn = Callable[[State], ActionVector]
 
 
-def random_policy(state: State, rng: np.random.Generator | None = None) -> ActionVector:
+def random_policy(state: State, rng: np.random.Generator | None = None, env: MDPEnv | None = None) -> ActionVector:
     rng = rng or np.random.default_rng()
-    actions = list(enumerate_valid_actions(state.Theta, state.K))
+    if env is not None and hasattr(env, "valid_actions"):
+        actions = list(env.valid_actions(state))
+    else:
+        actions = list(enumerate_valid_actions(state.Theta, state.K))
     return actions[rng.integers(0, len(actions))]
 
 
@@ -71,7 +74,7 @@ def evaluate_action(
         total = reward
         steps = 1
         while not done and steps < horizon:
-            a = random_policy(s_next, rng)
+            a = random_policy(s_next, rng, env)
             s_next, r, done, _ = env.step(s_next, a, rng)
             total += r
             steps += 1
