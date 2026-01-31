@@ -1,0 +1,77 @@
+
+\section{MDP 动作空间与决策流定义}
+
+基于上一节定义的包含阶段变量的统一状态空间 $\mathcal{S}$，本节正式定义受阶段变量 $\Theta_t$ 严格约束的动作空间 $\mathcal{A}(s_t)$。该设计确保了模型能覆盖题目要求的“调整杠杆”、“球员招募”、“票务定价”及“股权激励”等核心决策。
+
+\subsection{1. 财务杠杆与资本结构调整动作 (Financial Actions)}
+
+\textbf{激活条件}：任意阶段（通常在休赛期进行大幅调整，赛季中微调）。
+
+\begin{itemize}
+    \item \textbf{债务融资/偿还} $a_{\text{debt}}$：
+    \begin{equation}
+        a_{\text{debt}} \in [-D_{\text{max}}, D_{\text{max}}]
+    \end{equation}
+    正值表示新增借贷（增加 $\lambda_t$ 以获取运营资金），负值表示偿还债务（降低 $\lambda_t$ 以减少利息支出）。
+    \item \textbf{股权激励授予} $a_{\text{equity}}$（针对题目要求的“球员权益”）：
+    \begin{equation}
+        a_{\text{equity}} \in [0, \omega_{\text{cap}}]
+    \end{equation}
+    决策授予核心球员的股权比例。此动作直接影响财务状态中的 $\text{Player}_{\text{equity}}$（增加）和 $\text{CF}_t$（因替代薪资而短期增加，长期分红增加）。
+\end{itemize}
+
+\subsection{2. 赛季阶段特异性动作 (Phase-Specific Actions)}
+
+动作集合随 $\Theta_t$ 动态变化：
+
+\subsubsection{（1）休赛期动作 ($\Theta_t = \text{Offseason}$)}
+本阶段聚焦于资产重构与战略规划。
+\begin{enumerate}
+    \item \textbf{自由市场招募策略} $a_{\text{sign}}$：
+    \begin{equation}
+        a_{\text{sign}} \in \{\text{MaxStar}, \text{MidLevel}, \text{VetMin}, \text{None}\}
+    \end{equation}
+    决定在自由市场上的激进程度。配合环境状态中的 $N_{\text{Star,FA}}$ 和 $\text{Bidding}_t$ 决定签约成功率与成本。
+    \item \textbf{选秀策略} $a_{\text{draft}}$：
+    \begin{equation}
+        a_{\text{draft}} \in \{\text{BestAvailable}, \text{TeamFit}, \text{TradeDown}\}
+    \end{equation}
+    此外，若环境状态 $I_{\text{Expansion}}=1$，需额外执行\textbf{扩军保护决策} $a_{\text{protect}}$，划定 6-8 名保护球员名单。
+\end{enumerate}
+
+\subsubsection{（2）常规赛动作 ($\Theta_t = \text{Regular}$)}
+本阶段聚焦于商业运营优化。
+\begin{enumerate}
+    \item \textbf{动态票务定价} $a_{\text{ticket}}$：
+    \begin{equation}
+        a_{\text{ticket}} \in [0.8, 1.5] \times p_{\text{base}}
+    \end{equation}
+    设定相对于基准票价的浮动倍率。该决策需权衡单场收入（短期）与上座率/球迷忠诚度（长期品牌 $\mu_{\text{size}}$）。
+    \item \textbf{媒体/转播合作} $a_{\text{media}}$：
+    决策是否签署地方性流媒体协议（如题目所述），以当期投入换取未来的 $V_t$ 增长。
+\end{enumerate}
+
+\subsubsection{（3）交易截止日动作 ($\Theta_t = \text{TradeDeadline}$)}
+本阶段聚焦于方向性博弈。
+\begin{equation}
+    a_{\text{trade}} \in \{\text{Buyer}, \text{Seller}, \text{Hold}\}
+\end{equation}
+\begin{itemize}
+    \item \textbf{Buyer}：送出选秀权/年轻资产，换取即战力 $\mathbf{Q}_t$（提升本赛季 $\mathbf{W}_t$）。
+    \item \textbf{Seller}：送出即将到期的老将，换取选秀权/清理空间（优化未来 $\mathbf{L}_t$ 和 $S_{\text{avail}}$）。
+\end{itemize}
+
+\subsection{3. 目标函数与奖励结构}
+
+模型的优化目标是最大化有限时域 $T$ 内的所有者总回报（Total Owner Return, TOR）：
+
+\begin{equation}
+    \max_{\pi} \mathbb{E} \left[ \sum_{t=0}^{T} \gamma^t R(s_t, a_t, s_{t+1}) + \gamma^T \text{TerminalValue}(s_T) \right]
+\end{equation}
+
+其中奖励函数 $R(\cdot)$ 由三部分组成：
+\begin{equation}
+    R_t = \underbrace{w_1 \cdot \text{CF}_t}_{\text{现金流收益}} + \underbrace{w_2 \cdot \Delta V_t}_{\text{资产增值}} + \underbrace{w_3 \cdot \text{WinScore}(\mathbf{W}_t)}_{\text{竞技效用}} - \underbrace{w_4 \cdot \text{RiskPenalty}(\lambda_t)}_{\text{财务风险惩罚}}
+\end{equation}
+
+此目标函数体现了题目要求的“实现球队利润和价值的最大化”同时兼顾竞技表现。
