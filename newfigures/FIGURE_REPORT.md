@@ -86,17 +86,23 @@
 - **数据来源**：`project/experiments/output/q3_policy_comparison_detail.csv`
 - **解读**：用于说明扩军年竞价上升后，高薪档位的选择频率与财务表现之间的权衡。
 
+### 13) `q3_league_impact_heatmap.png`
+- **类型**：相关性/热力图（Impact Heatmap）
+- **用途**：量化扩军选址对联盟所有球队的影响（正负影响一目了然）
+- **数据来源**：`project/experiments/output/q3_league_impact_allteams.csv`
+- **解读**：红色=不利，绿色=有利；用于筛选“最有利/最不利”球队所有者。
+
 ---
 
 ## Q4 额外业务决策（票价/股权）
 
-### 13) `q4_ticket_policy_hist.png`
+### 14) `q4_ticket_policy_hist.png`
 - **类型**：动作频次柱状图
 - **用途**：展示票价策略在训练后的选择频率
 - **数据来源**：PPO 训练（`project/experiments/q4_dynamic_ticket_or_equity.py`）
 - **解读**：反映模型偏好的票价区间。
 
-### 14) `q4_equity_policy_hist.png`
+### 15) `q4_equity_policy_hist.png`
 - **类型**：动作频次柱状图
 - **用途**：展示股权激励策略的选择频率
 - **数据来源**：PPO 训练（`project/experiments/q4_dynamic_ticket_or_equity.py`）
@@ -106,25 +112,25 @@
 
 ## 数据结构与多维分布（补充支撑图）
 
-### 15) `player_corr_heatmap.png`
+### 16) `player_corr_heatmap.png`
 - **类型**：相关性热力图
 - **用途**：展示球员指标间相关性（TS%、USG%、AST%、DWS 等）
 - **数据来源**：`allplayers.csv`
 - **解读**：用于说明特征多样性与变量冗余。
 
-### 16) `player_cluster_parallel_coordinates.png`
+### 17) `player_cluster_parallel_coordinates.png`
 - **类型**：平行坐标图
 - **用途**：展示 5 类球员聚类的技能特征差异
 - **数据来源**：`allplayers.csv` + `project/data/player_kmeans.py`
 - **解读**：直观显示“PG/SG/SF/PF/C”类群的技能区分。
 
-### 17) `attendance_streamgraph.png`
+### 18) `attendance_streamgraph.png`
 - **类型**：堆叠面积图 / Streamgraph
 - **用途**：展示联盟顶级球队 attendance 随时间变化
 - **数据来源**：`wnba_attendance.csv`
 - **解读**：支持“市场环境变化”与票价策略分析。
 
-### 18) `market_bubble_attendance_revenue.png`
+### 19) `market_bubble_attendance_revenue.png`
 - **类型**：气泡图
 - **用途**：展示市场规模（出勤）、收入与估值的关系
 - **数据来源**：`wnba_attendance.csv` + `wnba_valuations.csv`
@@ -134,25 +140,25 @@
 
 ## 回归拟合权重与敏感性分析（新增）
 
-### 19) `skill_weights_bar.png`
+### 20) `skill_weights_bar.png`
 - **类型**：权重柱状图
 - **用途**：展示 Ridge/Lasso 拟合得到的 skill\_score 权重方向与大小
 - **数据来源**：`project/data/skill_weights.json`
 - **解读**：正负号反映指标与目标变量的相关方向；柱高体现重要性。
 
-### 20) `skill_model_mse.png`
+### 21) `skill_model_mse.png`
 - **类型**：模型对比柱状图
 - **用途**：比较 Ridge 与 Lasso 的拟合误差
 - **数据来源**：`project/data/skill_weights.json`
 - **解读**：MSE 越低代表拟合更稳定，本次选用 Ridge。
 
-### 21) `skill_fit_scatter.png`
+### 22) `skill_fit_scatter.png`
 - **类型**：拟合散点图
 - **用途**：展示 Ridge 模型对 Win%、NetRtg、ELO\_proxy 的拟合效果（预测 vs 实际）
 - **数据来源**：`allplayers.csv` + `wnba_advanced_stats.csv` + `IND_ELO_O_SOS_season_level.csv`
 - **解读**：点越靠近对角线，拟合越好。
 
-### 22) `skill_sensitivity.png`
+### 23) `skill_sensitivity.png`
 - **类型**：直方图 + 小提琴图组合
 - **用途**：展示权重扰动下的稳定性（Spearman 相关分布 + Top5 重叠率分布）
 - **数据来源**：`allplayers.csv`（权重扰动 200 次）

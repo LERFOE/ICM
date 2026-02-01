@@ -19,6 +19,7 @@ def env_transition(
     expansion_market_delta: Optional[float] = None,
     expansion_compete_delta: Optional[int] = None,
     expansion_media_bonus: Optional[float] = None,
+    expansion_travel_fatigue: Optional[float] = None,
 ) -> EnvState:
     E_next = E.copy()
 
@@ -45,6 +46,11 @@ def env_transition(
     if E_next.i_expansion == 1 and theta_next == PHASE_OFFSEASON:
         m_delta = expansion_market_delta if expansion_market_delta is not None else config.expansion_market_delta
         c_delta = expansion_compete_delta if expansion_compete_delta is not None else config.expansion_compete_delta
+        fatigue = (
+            expansion_travel_fatigue
+            if expansion_travel_fatigue is not None
+            else config.expansion_travel_fatigue
+        )
         E_next.mu_size = max(0.5, min(2.0, E_next.mu_size + m_delta))
         E_next.compete_local = max(0, min(2, E_next.compete_local + c_delta))
         E_next.n_star_fa = max(0, E_next.n_star_fa + config.expansion_star_fa_delta)
@@ -52,6 +58,8 @@ def env_transition(
         if expansion_media_bonus is not None:
             # apply a temporary macro-like lift via media bonus proxy
             E_next.bidding_intensity += expansion_media_bonus * 10.0
+        # Travel fatigue persists after expansion (new team added to schedule).
+        E_next.travel_fatigue = float(fatigue)
 
     # Exogenous FA market noise
     E_next.n_star_fa = max(0, int(E_next.n_star_fa + rng.normal(0, 1)))

@@ -1,3 +1,4 @@
+import argparse
 import csv
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ if str(ROOT) not in sys.path:
 
 from project.data.loaders import load_attendance
 from project.data.player_kmeans import build_player_model
+from project.data.geo import TEAM_LOCATIONS, build_expansion_sites, haversine_km
 from project.experiments.utils import build_env
 from project.mdp.action import DEFAULT_ACTION
 from project.mdp.config import MDPConfig
@@ -22,13 +24,6 @@ from project.mdp.mask import action_space_per_dim, mutable_mask
 OUTPUT_CSV = Path("project/experiments/output/q3_expansion_sensitivity.csv")
 OUTPUT_MD = Path("project/experiments/output/q3_expansion_summary.md")
 
-
-SITES = [
-    {"name": "Toronto", "market_delta": 0.02, "compete_delta": 0, "media_bonus": 0.05},
-    {"name": "Denver", "market_delta": -0.02, "compete_delta": 1, "media_bonus": 0.02},
-    {"name": "Nashville", "market_delta": -0.03, "compete_delta": 1, "media_bonus": 0.01},
-    {"name": "SanDiego", "market_delta": -0.01, "compete_delta": 0, "media_bonus": 0.03},
-]
 
 TRAIN_EPISODES = 8
 EVAL_EPISODES = 6
@@ -50,12 +45,6 @@ TEAM_CODE_TO_NAME = {
     "GSV": "Golden State Valkyries",
 }
 
-SITE_LOCAL_TEAMS = {
-    "Toronto": ["NYL", "CON"],
-    "Denver": ["MIN", "PHO"],
-    "Nashville": ["ATL", "WAS", "IND"],
-    "SanDiego": ["LVA", "LAS"],
-}
 
 
 def static_policy_factory(env):
@@ -118,16 +107,22 @@ def _strength_index(model) -> Dict[str, float]:
 def _league_impact(site, market_idx, strength_idx, cfg: MDPConfig) -> Dict[str, float]:
     impact: Dict[str, float] = {}
     scarcity = abs(cfg.expansion_star_fa_delta)
-    local = SITE_LOCAL_TEAMS.get(site["name"], [])
     for team in market_idx:
         m = market_idx[team]
         s = strength_idx.get(team, 0.0)
-        local_penalty = 0.04 if team in local else 0.0
+        loc_team = TEAM_LOCATIONS.get(team)
+        if loc_team is None:
+            dist_km = 1500.0
+        else:
+            dist_km = haversine_km(loc_team.lat, loc_team.lon, site["lat"], site["lon"])
+        overlap = max(0.0, 1.0 - dist_km / 600.0)
+        travel_term = -0.02 * (dist_km / 3000.0) + 0.01 * float(site["hub_score"])
+
         impact_score = (
             0.6 * site["media_bonus"] * m
-            + site["market_delta"] * m
+            + (site["market_delta"] - 0.03 * overlap) * m
             - 0.05 * site["compete_delta"] * (1.0 - m)
-            - local_penalty
+            + travel_term
             - 0.02 * scarcity * (1.0 - s)
         )
         impact[team] = impact_score
@@ -135,6 +130,12 @@ def _league_impact(site, market_idx, strength_idx, cfg: MDPConfig) -> Dict[str, 
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train-episodes", type=int, default=TRAIN_EPISODES)
+    parser.add_argument("--eval-episodes", type=int, default=EVAL_EPISODES)
+    parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
+    args = parser.parse_args()
+
     OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
 
     model = build_player_model()
@@ -142,11 +143,13 @@ def main():
     strength_idx = _strength_index(model)
 
     rows = []
-    for site in SITES:
+    sites = build_expansion_sites()
+    for site in sites:
         cfg = MDPConfig()
         cfg.expansion_market_delta = site["market_delta"]
         cfg.expansion_compete_delta = site["compete_delta"]
         cfg.expansion_media_bonus = site["media_bonus"]
+        cfg.expansion_travel_fatigue = site["travel_fatigue"]
         # For Q3 we focus on one upcoming expansion season for interpretability.
         cfg.expansion_years = [2026]
         # Allow debt decisions in planning; keep equity disabled so results focus on leverage vs roster/salary.
@@ -164,6 +167,7 @@ def main():
         cfg.expansion_market_delta = site["market_delta"]
         cfg.expansion_compete_delta = site["compete_delta"]
         cfg.expansion_media_bonus = site["media_bonus"]
+        cfg.expansion_travel_fatigue = site["travel_fatigue"]
         cfg.expansion_years = [2026]
         cfg.max_debt_action = None
         cfg.max_equity_action = 0
@@ -171,11 +175,11 @@ def main():
         env.config = cfg
         env.use_data = True
 
-        baseline = rollout_policy(env, static_policy_factory(env), episodes=EVAL_EPISODES, max_steps=MAX_STEPS)
-        ppo_cfg = PPOConfig(steps_per_update=128, epochs=2)
+        baseline = rollout_policy(env, static_policy_factory(env), episodes=args.eval_episodes, max_steps=args.max_steps)
+        ppo_cfg = PPOConfig(steps_per_update=256, epochs=4, policy_type="mlp", hidden_size=64)
         agent = PPOAgent(env, cfg=ppo_cfg, allowed_fn=ppo_allowed_factory(env))
-        agent.train(episodes=TRAIN_EPISODES)
-        learned = rollout_policy(env, agent.act, episodes=EVAL_EPISODES, max_steps=MAX_STEPS)
+        agent.train(episodes=args.train_episodes)
+        learned = rollout_policy(env, agent.act, episodes=args.eval_episodes, max_steps=args.max_steps)
 
         league_impact = _league_impact(site, market_idx, strength_idx, cfg)
         winners = sorted(league_impact.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -190,6 +194,12 @@ def main():
                 "baseline_cf": baseline["avg_cf"],
                 "learned_cf": learned["avg_cf"],
                 "delta_cf": learned["avg_cf"] - baseline["avg_cf"],
+                "dist_to_ind_km": site["dist_to_ind_km"],
+                "travel_fatigue": site["travel_fatigue"],
+                "market_score": site["market_score"],
+                "hub_score": site["hub_score"],
+                "nearby_teams": site["nearby_teams"],
+                "note": site["note"],
                 "winners": ",".join([w[0] for w in winners]),
                 "losers": ",".join([l[0] for l in losers]),
             }
@@ -210,6 +220,12 @@ def main():
                 "delta_cf",
                 "winners",
                 "losers",
+                "dist_to_ind_km",
+                "travel_fatigue",
+                "market_score",
+                "hub_score",
+                "nearby_teams",
+                "note",
             ]
         )
         for r in rows:
@@ -224,6 +240,12 @@ def main():
                     round(r["delta_cf"], 3),
                     r["winners"],
                     r["losers"],
+                    r["dist_to_ind_km"],
+                    r["travel_fatigue"],
+                    r["market_score"],
+                    r["hub_score"],
+                    r["nearby_teams"],
+                    r["note"],
                 ]
             )
 

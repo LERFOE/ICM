@@ -1,5 +1,7 @@
-site,baseline_terminal,learned_terminal,delta_terminal,baseline_cf,learned_cf,delta_cf,winners,losers
-Nashville,493.685,629.897,136.212,16.544,18.378,1.834,"NYL,PHO,LAS","WAS,ATL,IND"
-Toronto,537.895,653.108,115.213,17.78,18.14,0.36,"PHO,LAS,SEA","CON,WAS,DAL"
-Denver,504.503,618.403,113.9,16.72,18.356,1.636,"NYL,LAS,SEA","MIN,WAS,DAL"
-SanDiego,515.476,596.649,81.172,17.264,17.519,0.255,"NYL,PHO,IND","LVA,LAS,WAS"
+site,baseline_terminal,learned_terminal,delta_terminal,baseline_cf,learned_cf,delta_cf,winners,losers,dist_to_ind_km,travel_fatigue,market_score,hub_score,nearby_teams,note
+Portland,540.0,339.051,-200.95,17.72,10.862,-6.858,"PHO,LAS,GSV","WAS,CON,DAL",3027.3,0.93,0.6,0.35,1,"Far west coast, market potential, high travel cost"
+Columbus,564.776,332.427,-232.349,17.43,12.327,-5.104,"NYL,PHO,SEA","DAL,WAS,ATL",270.5,0.0784,0.55,0.65,3,"Near IND, mid market, high overlap"
+Toronto,570.777,304.748,-266.03,18.198,11.568,-6.63,"NYL,PHO,CHI","DAL,WAS,ATL",708.7,0.2079,0.85,0.6,2,"International large market, strong media bonus"
+StLouis,565.536,298.904,-266.632,17.532,12.813,-4.719,"PHO,NYL,SEA","WAS,ATL,DAL",370.6,0.1062,0.58,0.7,2,"Midwest hub, moderate distance, schedule-efficient"
+Denver,556.118,255.12,-300.998,18.015,11.091,-6.924,"PHO,LAS,NYL","WAS,CON,DAL",1606.9,0.4607,0.62,0.7,0,"Mountain hub, cross-region travel, network balance"
+Nashville,564.006,253.507,-310.499,17.549,11.312,-6.237,"PHO,NYL,CHI","ATL,WAS,DAL",404.6,0.12,0.6,0.55,2,"Southern growth market, moderate distance"

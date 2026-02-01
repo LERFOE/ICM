@@ -247,6 +247,7 @@ def build_competitive_state_from_data(
     # Defaults
     base = initial_competitive_state(MDPConfig(), rng)
     used_player_model = False
+    model_ref = None
 
     # If player dataset exists, build lineup-based Q/C/P
     try:
@@ -257,11 +258,12 @@ def build_competitive_state_from_data(
         if not roster_df.empty:
             base = model.compute_state_from_roster(roster_df, base)
             used_player_model = True
+            model_ref = model
     except Exception:
         # fall back to team-level aggregates
         pass
 
-    # Use season stats for W/L and ranks
+    # Use season stats for W/L and ranks (Indiana-only datasets)
     try:
         ind_stats = loaders.load_ind_team_stats()
         if year is None:
@@ -276,7 +278,7 @@ def build_competitive_state_from_data(
     except Exception:
         pass
 
-    # ELO / O / SOS from season level
+    # ELO / O / SOS from season level (Indiana-only datasets)
     try:
         elo_season = loaders.load_elo_season()
         if year is None:
@@ -287,6 +289,25 @@ def build_competitive_state_from_data(
             base.SOS = _safe_float(row.iloc[0].get("SOS_mean"), base.SOS)
             o_mean = _safe_float(row.iloc[0].get("O_mean_mean"), base.O[0])
             base.O = np.array([o_mean, base.O[1], base.O[2]], dtype=float)
+    except Exception:
+        pass
+
+    # If non-Indiana teams lack season-level stats, infer W/ELO from player strength
+    try:
+        team_code = (cfg.team_code or "").upper()
+        if team_code and team_code != "IND" and used_player_model and model_ref is not None:
+            strengths = model_ref.team_strengths
+            if not strengths:
+                model_ref.build_league_rosters()
+                strengths = model_ref.team_strengths
+            if team_code in strengths:
+                elo = float(strengths[team_code]["elo"])
+                base.ELO = elo
+                # Convert ELO vs league average 1500 to win% proxy
+                win_pct = 1.0 / (1.0 + 10.0 ** ((1500.0 - elo) / 400.0))
+                win_pct = float(np.clip(win_pct, 0.2, 0.8))
+                rank_bin = 0.0 if win_pct >= 0.55 else 1.0 if win_pct >= 0.45 else 2.0
+                base.W = np.array([win_pct, 0.0, rank_bin], dtype=float)
     except Exception:
         pass
 

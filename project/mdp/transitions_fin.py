@@ -95,8 +95,13 @@ def fin_transition_and_reward(
     # Marketing cost
     marketing_cost = marketing_rate * total_revenue
 
+    fatigue = float(E_next.travel_fatigue) if E_next.i_expansion == 1 else 0.0
+    travel_cost = config.travel_cost_beta * fatigue
+
     # Cash flow (CFO)
-    CF = total_revenue - (payroll_cash + config.fixed_ops_cost + marketing_cost + tax_bill + interest)
+    CF = total_revenue - (
+        payroll_cash + config.fixed_ops_cost + marketing_cost + tax_bill + interest + travel_cost
+    )
 
     # Debt change
     debt_delta = config.debt_delta_ratio[action.a_debt] * F_next.FV
@@ -150,4 +155,6 @@ def fin_transition_and_reward(
     F_next.owner_share = owner_share_next
 
     reward = compute_reward(F_next, R_next, Theta, config)
+    if debt_delta > 0:
+        reward -= config.debt_issue_penalty * (debt_delta / max(F_next.FV, 1e-6))
     return F_next, reward

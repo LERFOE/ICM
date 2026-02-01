@@ -359,6 +359,22 @@ def fig_q3_chord_like():
     _save(fig, "q3_chord_expansion.png")
 
 
+def fig_q3_league_impact_heatmap():
+    path = Path("project/experiments/output/q3_league_impact_allteams.csv")
+    if not path.exists():
+        return
+    df = pd.read_csv(path)
+    pivot = df.pivot_table(index="team", columns="site", values="impact_score", aggfunc="mean")
+    # Order teams by average impact to make heatmap more interpretable
+    pivot = pivot.loc[pivot.mean(axis=1).sort_values(ascending=False).index]
+    fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    sns.heatmap(pivot, ax=ax, cmap="RdYlGn", center=0.0, annot=False, cbar_kws={"label": "Impact Score"})
+    ax.set_title("Q3 League Impact Heatmap (All Teams)")
+    ax.set_xlabel("Expansion Site")
+    ax.set_ylabel("Team")
+    _save(fig, "q3_league_impact_heatmap.png")
+
+
 def fig_q3_policy_comparison_deltas():
     """Q3: quantify how policies differ under expansion scenarios (season 3 end)."""
     path = Path("project/experiments/output/q3_policy_comparison_summary.csv")
@@ -800,6 +816,7 @@ def main():
     fig_q3_chord_like()
     fig_q3_policy_comparison_deltas()
     fig_q3_expansion_offseason_action_heatmaps()
+    fig_q3_league_impact_heatmap()
     fig_q4_policy_hist()
     fig_market_bubble()
     fig_skill_weights_bar()

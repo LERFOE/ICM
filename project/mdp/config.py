@@ -31,6 +31,7 @@ class MDPConfig:
     fixed_ops_cost: float = 4.0
     interest_rate: float = 0.06
     leverage_interest_spread: float = 0.04
+    travel_cost_beta: float = 1.2
 
     # Ticket, marketing, equity mappings
     ticket_multipliers: List[float] = field(
@@ -80,6 +81,7 @@ class MDPConfig:
     expansion_star_fa_delta: int = -2
     expansion_bidding_delta: float = 2.0
     expansion_media_bonus: float = 0.03
+    expansion_travel_fatigue: float = 0.0
 
     # Base market profile (team-specific)
     market_size: float = 0.6
@@ -100,6 +102,7 @@ class MDPConfig:
     win_eta2: float = 0.6
     win_eta3: float = 0.7
     win_eta_sos: float = 0.8
+    win_eta_fatigue: float = 0.6
     win_noise: float = 0.05
     syn_recovery: float = 0.2
 
@@ -124,6 +127,7 @@ class MDPConfig:
     leverage_hard: float = 0.60
     leverage_soft_penalty: float = 2.0
     leverage_hard_penalty: float = 6.0
+    debt_issue_penalty: float = 4.0
     tax_penalty: float = 0.5
     commit_threshold: float = 0.55
     commit_penalty: float = 0.8

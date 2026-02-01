@@ -145,12 +145,14 @@ def game_sim_update(
 
     elo_diff = (R_next.ELO - R_next.O[0]) / 400.0
     skill_term = np.tanh(float(np.mean(R_next.Q)))
+    fatigue = float(E.travel_fatigue) if E.i_expansion == 1 else 0.0
     base = (
         config.win_eta0
         + config.win_eta1 * elo_diff
         - config.win_eta_sos * (R_next.SOS - 1.0)
         + config.win_eta2 * R_next.Syn
         + config.win_eta3 * skill_term
+        - config.win_eta_fatigue * fatigue
     )
     win_prob = _sigmoid(base)
     win_pct = float(np.clip(rng.normal(win_prob, config.win_noise), 0.05, 0.95))

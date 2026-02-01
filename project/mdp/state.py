@@ -82,6 +82,7 @@ class EnvState:
     compete_local: int
     n_star_fa: int
     bidding_intensity: float
+    travel_fatigue: float
 
     def copy(self) -> "EnvState":
         return EnvState(
@@ -93,6 +94,7 @@ class EnvState:
             compete_local=int(self.compete_local),
             n_star_fa=int(self.n_star_fa),
             bidding_intensity=float(self.bidding_intensity),
+            travel_fatigue=float(self.travel_fatigue),
         )
 
 
@@ -155,6 +157,7 @@ class State:
             float(self.E.compete_local) / 2.0,
             self.E.n_star_fa / 10.0,
             self.E.bidding_intensity / 20.0,
+            float(self.E.travel_fatigue),
         ])
 
         phase_onehot = np.zeros(len(PHASE_TO_INDEX), dtype=float)
@@ -211,6 +214,7 @@ def initial_env_state(config: MDPConfig) -> EnvState:
         compete_local=config.compete_local,
         n_star_fa=config.base_star_fa,
         bidding_intensity=config.base_bidding,
+        travel_fatigue=0.0,
     )
 
 

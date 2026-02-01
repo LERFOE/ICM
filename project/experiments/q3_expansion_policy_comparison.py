@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 
 from project.data.integration import calibrate_config_from_data
 from project.data.player_kmeans import build_player_model
+from project.data.geo import build_expansion_sites
 from project.mdp.action import ActionVector, DEFAULT_ACTION
 from project.mdp.config import MDPConfig
 from project.mdp.env import MDPEnv
@@ -26,12 +27,7 @@ OUTPUT_SUMMARY = Path("project/experiments/output/q3_policy_comparison_summary.c
 OUTPUT_MD = Path("project/experiments/output/q3_policy_comparison_summary.md")
 
 
-SITES = [
-    {"name": "Toronto", "market_delta": 0.02, "compete_delta": 0, "media_bonus": 0.05},
-    {"name": "Denver", "market_delta": -0.02, "compete_delta": 1, "media_bonus": 0.02},
-    {"name": "Nashville", "market_delta": -0.03, "compete_delta": 1, "media_bonus": 0.01},
-    {"name": "SanDiego", "market_delta": -0.01, "compete_delta": 0, "media_bonus": 0.03},
-]
+SITES = build_expansion_sites()
 
 
 def masked_nearest_valid_action(state, env: MDPEnv, target: ActionVector) -> ActionVector:
@@ -85,6 +81,7 @@ def collect_metrics(state, cum_cf: float, action: ActionVector | None) -> Dict[s
         "compete_local": int(state.E.compete_local),
         "n_star_fa": int(state.E.n_star_fa),
         "bidding_intensity": float(state.E.bidding_intensity),
+        "travel_fatigue": float(getattr(state.E, "travel_fatigue", 0.0)),
         "leverage": float(state.F.leverage),
         "cash_flow": float(state.F.CF),
         "cash_flow_cum": float(cum_cf),
@@ -200,6 +197,7 @@ def build_site_env(site: Dict, seed: int) -> MDPEnv:
     cfg.expansion_market_delta = float(site["market_delta"])
     cfg.expansion_compete_delta = int(site["compete_delta"])
     cfg.expansion_media_bonus = float(site["media_bonus"])
+    cfg.expansion_travel_fatigue = float(site["travel_fatigue"])
     # Only analyze one expansion event to keep interpretation clean.
     cfg.expansion_years = [2026]
     # Allow leverage decisions; keep soft-brake inside env.valid_actions().
@@ -212,6 +210,7 @@ def build_site_env(site: Dict, seed: int) -> MDPEnv:
     cfg.expansion_market_delta = float(site["market_delta"])
     cfg.expansion_compete_delta = int(site["compete_delta"])
     cfg.expansion_media_bonus = float(site["media_bonus"])
+    cfg.expansion_travel_fatigue = float(site["travel_fatigue"])
     cfg.expansion_years = [2026]
     cfg.max_debt_action = None
     cfg.max_equity_action = 0
@@ -246,7 +245,7 @@ def main():
         defensive_pol = static_policy_factory(env, defensive_target)
 
         # Train PPO on this site scenario
-        ppo_cfg = PPOConfig(steps_per_update=256, epochs=2)
+        ppo_cfg = PPOConfig(steps_per_update=256, epochs=4, policy_type="mlp", hidden_size=64)
         agent = PPOAgent(env, cfg=ppo_cfg, allowed_fn=ppo_allowed_factory(env))
         agent.train(episodes=args.train_episodes)
 
