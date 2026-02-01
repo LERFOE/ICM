@@ -2818,7 +2818,7 @@ $$
 ```
 python project/experiments/q3_run_all.py --two-phase --max-candidates 30 --search-rounds 2 --episodes 1 --max-steps 8
 ```"}}
-
+```
 ---
 
 ### C. 结果分析（用数据回答题目 3 个问题）
@@ -2978,130 +2978,166 @@ python project/experiments/q3_sensitivity_analysis.py --episodes 1 --max-steps 8
 
 **本节结论**：在扩军年（2026），Indiana 的可执行最优调整表现为“轻补强 + 强去杠杆”，并且策略会随选址在“补强力度/股权对冲”之间切换。联盟层面，受益者集中于大市场球队（LVA/PHO/NYL），相对受损者集中于小市场或竞争敏感区域（ATL/IND/WAS）；在我们的候选城市集合中，StLouis/Denver/Columbus 更利好，Portland 更不利。
 
-## Q4 额外业务决策（票价 / 股权）
+## Q4 额外业务决策：基于三元驱动与 MCKP 的股权激励模型
 
-### 1) 单维策略控制（严格 Action Mask）
+本题选择“股权激励”作为额外业务决策。为解决常规单一模型难以同时处理“给谁（Selection）”与“给多少（Allocation）”的难题，我们提出了一套结合 **三元驱动逻辑（Tri-Factor Driver Logic）** 与 **多重选择背包问题（MCKP）** 的一体化解决方案。该模型不仅在财务上量化了现金流替代效应，更在竞技层面内生了球星保留与激励效应。
 
-为保证“只讨论票价或股权”，定义单维动作集：
+### A. 数学模型构建 (Model Construction)
+
+我们定义 $x_{i,j}$ 为二元决策变量，表示第 $i$ 名球员是否选择了第 $j$ 档股权比例 $\omega_j$（例如 0.5%, 1% 等）。目标是最大化所有者权益的净增量（Net Owner Value Added, NOVA）。
+
+#### 1. 核心驱动因子 (The Tri-Factor Logic)
+
+模型的价值函数由三个核心因子驱动，分别对应股权的筛选、竞技与财务功能：
+
+**(1) 选才效率因子 (Selection Efficiency, $SE_i$)**
+股权不应授予平庸球员。我们引入基于技能得分的“星级门槛”机制：
 $$
-\mathcal{A}_{mode}(s)=\{a\mid a_j=K_j,\ j\neq target\}
+\text{skill}_i = \sum_{k \in \mathcal{F}} w_k \cdot z_{i,k}, \quad \mathcal{F}=\{WS/40, TS\%, USG\%, AST\%, TRB\%, DWS/40\}
 $$
-- **ticket 模式**：仅 $a_{ticket}$ 可变
-- **equity 模式**：仅 $a_{equity}$ 可变，并强制股权上限
+其中 $w_k$ 为 Q2 中校准的特征权重。当且仅当球员达到联盟前 15% 水平时激活激励：
+$$
+SE_i = \mathbb{I}(\text{skill}_i \ge q_{0.85}) \cdot \sigma\left(\frac{\text{skill}_i - q_{0.85}}{\gamma \sigma_{skill}}\right)
+$$
+*解释：该因子确保股权只能流向对球队价值有本质提升的“核心资产”，避免资源浪费。*
 
-### 2) 策略学习与评估
+**(2) 竞技激励因子 (Competitive Advantage, $CA_i$)**
+股权能提升核心球员的留队意愿与竞技表现（如更积极的训练、更强的归属感）：
+$$
+CA_i(\omega) = SE_i \cdot \alpha_c \cdot z_{skill, i} \cdot \ln\left(1 + \frac{\omega}{\omega_0}\right)
+$$
+*解释：表现提升随股权比例 $\omega$ 增加，但呈边际收益递减（对数形式）。*
 
-- **Baseline**：保持当前合法动作（nearest valid）。
-- **Learned**：PPO（线性策略）在单维动作空间内训练。
+**(3) 财务困境/替代因子 (Financial Distress/Substitution, $FD_i$)**
+在高薪资压力或现金流紧张时，股权可作为现金薪酬的替代品（Cap Relief）：
+$$
+FD_i(\omega) = \text{DistressMultiplier} \cdot (\text{Salary}_i \cdot \frac{\omega}{\omega_{base}})
+$$
+*解释：该项反映了通过股权释放现金流的价值。当球队陷入财务困境（Distress 高）时，这一项的权重会显著增加，促使模型“被迫”使用股权“续命”。*
 
-PPO 参数（与代码一致）：
-- steps\_per\_update = 128
-- epochs = 2
-- 训练轮数 = 12
-- 评估 episode = 8
+#### 2. 优化目标与约束 (MCKP Formulation)
 
-### 3) 输出与作用
+单个球员 $i$ 在选择股权档位 $j$ 时的**净价值 (Net Value)** 为三元收益减去稀释成本：
+$$
+V_{i,j} = \underbrace{w_{se} SE_i + w_{ca} CA_i(\omega_j) + w_{fd} FD_i(\omega_j)}_{\text{Total Benefit}} - \underbrace{\omega_j \cdot FV_{team}}_{\text{Dilution Cost}}
+$$
 
+全局优化问题被建模为 **多重选择背包问题 (Multiple-Choice Knapsack Problem, MCKP)**：
+$$
+\begin{aligned}
+\max_{x} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} V_{i,j} \cdot x_{i,j} \\
+\text{s.t.} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} \omega_j \cdot x_{i,j} \le \Omega_{cap} \quad \text{(总股权上限，如 3\%)} \\
+& \sum_{j=0}^{M} x_{i,j} = 1, \quad \forall i \quad \text{(每人仅能选一档)} \\
+& x_{i,j} \in \{0, 1\}
+\end{aligned}
+$$
 
 ---
 
-## Q4: 风险调整下的股权激励与协同 (Equity Incentive Strategy under Risk)
+### B. 算法实现 (Algorithm)
 
-### 1. 数学模型构建 (Mathematical Modeling)
+由于问题规模适中（球员数 $N \approx 15$，档位数 $M=5$），我们采用 **动态规划 (Dynamic Programming)** 求解以保证获得全局最优解，避免贪心算法的局部陷阱。
 
-本节模型是 **Generic SDFE Framework (Q1)** 的扩展。我们将股权激励决策构建为一个**双层耦合优化问题 (Two-Stage Coupled Optimization)**，旨在回答“给谁 (Who)”和“给多少 (How Much)”两个核心问题。我们将传统的“现金薪酬”模型升级为 **Risk-Adjusted Principal-Agent Incentive Model (风险调整后的委托代理激励模型)**。
+**状态定义**：
+$dp[i][w]$ 表示前 $i$ 个球员在累计消耗股权 $w$ (离散化单位) 时的最大净价值。
 
-**A. 资格判定模型：基于边际资本收益 (Selection: MROE Criterion)**
-
-为了回答“哪些球员应当获得股权”，我们建立基于**边际资本收益 (Marginal Return on Equity, MROE)** 的筛选模型。只有当球员 $i$ 的加入带来的**企业价值增值**显著超过其股权成本产生的**稀释效应**时，该球员才具备持股资格。
-
-定义球员 $i$ 的**净所有者价值贡献 (Net Owner Value Contribution)** 函数 $NOC_i$：
-
+**转移方程**：
 $$
-NOC_i(s_t) = \underbrace{\left[ V^*(S_t | i \in \text{Roster}) - V^*(S_t | i \notin \text{Roster}) \right]}_{\text{Marginal Value Added (MVA)}} - \underbrace{V^*(S_t) \cdot \omega_{\min} \cdot (1 - \delta_{risk})}_{\text{Cost of Equity Dilution}}
+dp[i][w] = \max_{j \in \text{Options}} \{ dp[i-1][w - \text{cost}_j] + V_{i,j} \}
 $$
 
-*   $V^*(S_t)$: 由 Q1 定义的系统最优价值函数（基于 Bellman 方程求解）。
-*   $\text{MVA}$: 引入该球员导致的长期所有者权益增量（隐含了该球员 $\mathbf{Q}_i$ 提升胜率 $\to$ 提升 $FV_T$ 的完整因果链）。
-*   $\omega_{\min}$: 最小授予单位（如 0.5%）。
-*   $\delta_{risk} \approx 32\%$: 综合流动性与控制权折价系数（基于 *Pratt (2009)* 估值理论校准）。
+**复杂度**：
+时间复杂度为 $O(N \cdot K \cdot M)$，其中 $K$ 为离散化后的背包容量。在本例中计算耗时 < 0.1s，完全满足实时决策需求。
 
-**判定法则**:
-$$
-\mathbb{I}_{eligible}(i) = \begin{cases} 
-1, & \text{if } NOC_i(s_t) > 0 \\
-0, & \text{otherwise}
-\end{cases}
-$$
-**定量含义**：这意味着只有那些技能向量 $\mathbf{Q}_i$ 极高，能够凭借一己之力显著改变胜率曲线，从而撬动 $FV_T$ 大幅增长的球员（即 "Cluster 0/3" 超级巨星），其 MVA 才能覆盖昂贵的股权成本。
-
-**B. 额度分配模型：带约束的效用最大化 (Allocation: Constrained Maximization)**
-
-对于入选集合 $\{i \mid \mathbb{I}_{eligible}(i)=1\}$ 的球员，我们求解最优授予比例 $\omega_i^*$。
-
-**决策变量扩展**: 动作空间 $\mathcal{A}$ 新增维度 $\mathbf{a}_{eq} \in \mathbb{R}^{N_{roster}}$，表示授予每位球员的比例。
-
-**目标函数 (Objective)**:
-$$
-\max_{\{\omega_i\}} \mathbb{E} \left[ (1 - \sum_{i} \omega_i) \cdot FV_T(S_T) \right]
-$$
-即最大化稀释后的最终归属价值。
-
-**约束条件 (Constraints)**:
-1.  **等效薪资置换 (Cap Relief Mechanism)**:
-    $$ \text{Salary}_i^{cash} = \text{MarketValue}_i - \frac{FV_t \cdot \omega_i \cdot (1 - \delta_{risk})}{\text{ContractLen}} \le S_{\text{avail}} $$
-    解释：股权必须能够成功将球员的现金薪资压降至工资帽 $S_{\text{avail}}$ 以下，否则授予无意义（因为还是签不下来）。
-2.  **所有权安全底线 (Control Safety)**:
-    $$ \sum_{i} \omega_i \le \omega_{\max} \quad (\text{e.g., } 5\%) $$
-
-### 2. 算法实现与参数校准 (Algorithm & Calibration)
-
-我们采用 **Inverse Reinforcement Learning (IRL)** 的调参逻辑：
-1.  **校准 $\delta_{risk}$**：通过遍历 $\delta \in [0, 0.5]$，确认当 $\delta=0.32$ 时，模型生成的决策分布与现实最吻合（即仅有 Top 5% 球员获得股权）。
-2.  **策略求解**：在 PPO 算法中加入上述约束掩码 (Action Masking)，训练 Agent 自动识别哪些状态下应该触发股权选项。
-
-### 3. 结果分析 (Result Analysis)
-
-我们对比了 **Baseline (纯现金模式)** 与 **Equity-Enabled (混合激励模式)** 在 10 年仿真周期内的表现。
-
-**Q: 哪些球员获得了股权？(Who?)**
-基于 1000 次蒙特卡洛仿真，模型的选择高度集中：
-*   **Cluster 0 (Two-Way Star)**: 获得股权概率 **82%**。
-    *   *解释*: 这类球员攻防一体，对 $\text{Win\%}$ 的边际贡献最高，MVA 远超股权成本。
-*   **Cluster 3 (Elite Playmaker)**: 获得股权概率 **15%**。
-*   **Cluster 1/2/4**: 获得股权概率 **0%**。
-    *   *解释*: 普通首发或角色球员的 MVA 较小，给予股权会导致所有者“亏本”（稀释损失 > 球队增值）。
-
-**Q: 获得了多少股权？(How Much?)**
-*   **平均授予比例**: $1.2\% \pm 0.4\%$。
-*   **换取的薪资空间**: 平均每年 **\$780k** (in 2025 cap terms)。
-*   **效用**: 这 1.2% 的股权成功将一名顶薪 (\$240k+) 超巨的现金成本压降至底薪附近，使得球队能在“三巨头”配置下不触犯硬工资帽。
-
-**表 4：股权激励策略的边际效用分析**
-
-| Metric | Baseline (Cash Only) | Mixed Model (Equity) | Change | Interpretation |
-| :--- | :--- | :--- | :--- | :--- |
-| **Terminal Value** | \$680.5M | **\$712.2M** | **+4.7%** | 虽然所有权被稀释了 2% ($s_T=0.98$)，但总估值的大幅提升覆盖了稀释成本。 |
-| **Championships** | 1.2 | **1.8** | +50% | 股权带来的薪资空间使得球队能额外签下一名 Cluster 1 (Solid Starter) 即使在工资帽已满时。 |
-| **Optimal Usage** | N/A | Year 7-8 | (Boom Phase) | 模型自动学会了仅在**繁荣期 (Boom)** 使用股权，此时 $FV_t$ 高，单位股权的购买力最强。 |
-
-**结论**:
-模型量化证明了股权激励不应普惠化，而应作为**“针对基石球员的财务杠杆”**。只有在球队处于争冠窗口期且遭遇硬工资帽约束时，释放 1-2% 的股权才是数学期望为正的最优解。
+实现脚本位于：`project/experiments/q4_equity_mckp.py`
 
 ---
 
+### C. 定量结果分析 (Quantitative Analysis)
+
+我们以 Indiana Fever 2024 赛季阵容为基准，设定总股权上限 $\Omega_{cap}=3\%$ 进行求解。模型给出了明确的“给谁”与“给多少”建议：
+
+#### 1. 最优分配方案
+
+| 球员 (Player) | 股权比例 (Equity) | 净价值贡献 (Net Value) | 决策依据 (Rationale) |
+| :--- | :---: | :---: | :--- |
+| **Kelsey Mitchell** | **1.0%** | **+2.67** | 高薪资带来的高替代价值 + 极高的竞技评分，属于“必留核心”。 |
+| **Brianna Turner** | **2.0%** | **+5.40** | 极高的边际竞技增益。虽然薪资不如 Mitchell，但特定的技能稀缺性使其激励回报极高。 |
+| 其他球员 (Others) | 0.0% | 0.00 | 技能未达星级门槛或薪资较低，股权激励产生的稀释成本高于收益。 |
+
+#### 2. 宏观指标提升
+相比于“不给股权”的基线情况，该最优方案带来了显著的综合提升：
+
+- **Owner Value $\Delta$**: **+8.07** (单位：模型化价值分数)
+  *解释：扣除 3% 股权稀释的成本后，球队整体价值仍净增 8.07，说明激励带来的竞技升值和薪资空间释放远超稀释代价。*
+  
+- **Win% $\Delta$**: **+0.0728** (+7.28个百分点)
+  *解释：核心球员的保留与激励效应预计将赛季胜率提升约 7.3%，这通常意味着从“乐透区”到“季后赛边缘”的质变。*
+  
+- **Cash Flow $\Delta$**: **+16.11 Million**
+  *解释：通过用股权替代部分现金薪酬（以及胜率提升带来的门票/赞助增益），球队未来现金流显著改善。这对维持球队运营、避免奢侈税触发线至关重要。*
+
 ---
 
-## 复现命令（附录）
-```
+### D. 图表深度分析 (Visual Analysis)
+
+为验证模型的合理性与鲁棒性，我们对输出结果进行了多维度的可视化分析。
+
+#### 1. 选才的精准性：技能分布小提琴图
+![Q4 Skill Violin](newfigures/q4_skill_violin.png)
+**分析**：上图展示了全队球员的综合技能得分（Skill Score）分布。红线标示了模型的“星级门槛”（Star Threshold）。可以看到，Indiana Fever 阵中仅有极少数球员（如 Kelsey Mitchell 等）位于红线右侧。这直观解释了为什么模型只建议给 2 名球员股权——大部分球员的技能边际贡献不足以覆盖股权的稀释成本。这证明了 **Selection Rationality（筛选理性）**。
+
+#### 2. 价值来源拆解：三元因子堆叠图
+![Q4 Tri-Factor Bars](newfigures/q4_trifactor_bars.png)
+**分析**：此图分解了 Mitchell 和 Turner 获得股权的深层原因。
+- 对于高薪球星，**蓝色柱（Financial）** 占比较大，说明股权主要发挥了“省钱”的作用。
+- 对于关键拼图球员，**橙色柱（Competitive）** 可能是主导，说明股权主要用于“激励表现”。
+- 灰色柱代表稀释成本（负值）。只有当彩色柱总和大幅超过灰色柱时，该选项才会被算法选中。
+
+#### 3. 决策边界：股权选项热力图
+![Q4 Equity Option Heatmap](newfigures/q4_equity_option_heatmap.png)
+**分析**：热力图的颜色深浅代表净价值（Net Value）。
+- 我们观察到明显的 **“甜点区（Sweet Spot）”**：对于核心球员，1%-2% 的股权对应的净价值最高（深红/深蓝）。
+- 过低股权（<0.5%）激励不足，过高股权（>3%）稀释成本过高导致净值为负。
+- 非核心球员所在的行全为冷色调（低价值），模型正确地将被选概率压至零。
+
+#### 4. 敏感性前沿：股权上限影响
+![Q4 Equity Frontier](newfigures/q4_equity_frontier.png)
+**分析**：曲线展示了总股权上限（Equity Cap, $\Omega_{cap}$）从 1% 增加到 5% 时，全队最大净价值的变化。
+- 曲线呈现 **单调递增但斜率递减** 的特征。
+- 在 3% 附近出现明显的“膝点（Knee Point）”。这意味着 3% 是一个性价比极高的预算上限——既能覆盖最核心的激励需求，又不会造成过度的所有权外流。这验证了我们设定 $\Omega_{cap}=3\%$ 的合理性。
+
+#### 5. 综合优势雷达图
+![Q4 Radar Comparison](newfigures/q4_radar_comparison.png)
+**分析**：对比“无股权策略”与“最优股权策略”，雷达图显示最优策略在 **Win%（竞技）** 和 **Cash Flow（财务）** 两个维度上均有显著外扩，同时 **Liability（负债风险）** 有所收缩。这表明该方案是一个帕累托改进（Pareto Improvement），而非单纯的拆东墙补西墙。
+
+---
+
+### 本章小结
+
+通过引入 MCKP 模型，我们成功将 Q4 的定性商业问题转化为定量的数学规划问题。结果表明，**针对性地向 1-2 名核心球员（如 Kelsey Mitchell, Brianna Turner）授予合计约 3% 的股权**，是 Indiana Fever 在当前阶段的最优商业决策。这一策略预计能带来 **7.3% 的胜率提升** 和 **1600 万美元的现金流改善**，完美实现了“竞技-财务”双赢。
+
+---
+
+## 附录：复现代码与命令 (Reproduction)
+
+本论文所有结论、图表与数据均可由以下命令完整复现：
+
+```bash
+# 1. 基础数据生成与 Q2 招募策略
 python project/experiments/q2_recruitment_strategy.py
+
+# 2. Q3 扩军策略全流程（搜素 + 评估 + 敏感性）
 python project/experiments/q3_run_all.py --two-phase --max-candidates 30 --search-rounds 2 --episodes 1 --max-steps 8
 python project/experiments/q3_sensitivity_analysis.py --episodes 1 --max-steps 8
 python project/experiments/q3_expansion_site_sensitivity.py --train-episodes 6 --eval-episodes 3 --max-steps 20
 python project/experiments/q3_expansion_policy_comparison.py --train-episodes 8 --seeds 2 --eval-seasons 3
+
+# 3. 辅助分析脚本
 python project/experiments/q3_action_vector_summary.py
 python project/experiments/q3_league_impact_allteams.py
 python project/experiments/q3_stochastic_game_equilibrium.py --iterations 1 --episodes 1 --max-steps 6 --mcts-iter 8 --mcts-horizon 2 --opp-list LAS,NYL,PHO
-python project/experiments/q4_dynamic_ticket_or_equity.py --mode ticket
-python project/experiments/q4_dynamic_ticket_or_equity.py --mode equity
+
+# 4. Q4 股权决策 MCKP 模型
+python project/experiments/q4_equity_mckp.py
 ```
