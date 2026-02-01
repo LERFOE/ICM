@@ -2888,7 +2888,7 @@ python project/experiments/q3_run_all.py --two-phase --max-candidates 30 --searc
 以联盟平均 $\Delta OwnerValue$ 衡量站点的“总体利好程度”，在我们的候选集合中：
 - **最有利（联盟平均 owner 增量最大）**：StLouis（均值 7.035）、Denver（7.022）、Columbus（7.004）
 - **最不利（联盟平均 owner 增量最小）**：Portland（6.818）
-
+Toronto是新市场，对现有大部分球队不构成竞争关系，并且这是一整个新的市场，这会对整个联盟带来新收益。
 解释：StLouis/Denver 具有较高枢纽性（更低旅行成本）且对多数球队的 $\text{overlap}_i$ 较小；Portland 对东部球队造成更高的疲劳与旅行成本，从而在联盟层面更不利。
 
 ![Q3 League Impact Heatmap: 各球队在不同扩军选址下的影响强度（热力图）](newfigures/q3_league_impact_heatmap.png)
@@ -3001,12 +3001,13 @@ SE_i = \mathbb{I}(\text{skill}_i \ge q_{0.85}) \cdot \sigma\left(\frac{\text{ski
 $$
 *解释：该因子确保股权只能流向对球队价值有本质提升的“核心资产”，避免资源浪费。*
 
-**(2) 竞技激励因子 (Competitive Advantage, $CA_i$)**
-股权能提升核心球员的留队意愿与竞技表现（如更积极的训练、更强的归属感）：
+**(2) 竞技激励因子 (Competitive Advantage, $CA_i$，含甜点区间)**
+股权能提升核心球员的留队意愿与竞技表现，但**激励存在最优区间**：
 $$
-CA_i(\omega) = SE_i \cdot \alpha_c \cdot z_{skill, i} \cdot \ln\left(1 + \frac{\omega}{\omega_0}\right)
+CA_i(\omega) = SE_i \cdot \alpha_c \cdot z_{skill, i} \cdot \ln\left(1 + \frac{\omega}{\omega_0}\right)\cdot
+\exp\left(-\frac{(\omega-\omega^\ast)^2}{\sigma_\omega^2}\right)
 $$
-*解释：表现提升随股权比例 $\omega$ 增加，但呈边际收益递减（对数形式）。*
+*解释：当股权过低时激励不足，过高时股权产生的激励效果会降低，显现出边际下降；$\omega^\ast$ 表示“甜点区间”中心。*
 
 **(3) 财务困境/替代因子 (Financial Distress/Substitution, $FD_i$)**
 在高薪资压力或现金流紧张时，股权可作为现金薪酬的替代品（Cap Relief）：
@@ -3017,16 +3018,23 @@ $$
 
 #### 2. 优化目标与约束 (MCKP Formulation)
 
-单个球员 $i$ 在选择股权档位 $j$ 时的**净价值 (Net Value)** 为三元收益减去稀释成本：
+单个球员 $i$ 在选择股权档位 $j$ 时的**所有者净收益**由“终值变化 + 现金流释放”构成：
 $$
-V_{i,j} = \underbrace{w_{se} SE_i + w_{ca} CA_i(\omega_j) + w_{fd} FD_i(\omega_j)}_{\text{Total Benefit}} - \underbrace{\omega_j \cdot FV_{team}}_{\text{Dilution Cost}}
+\Delta FV_i(\omega_j)=FV_t\cdot v_{scale}\Big(w_{se}SE_i\sqrt{\tfrac{\omega_j}{\omega_{max}}}+w_{ca}CA_i(\omega_j)+w_{ret}SE_i\sqrt{\tfrac{\omega_j}{\omega_{max}}}\Big)
 $$
+$$
+\Delta \text{OwnerTerminal}_i(\omega_j)=(s_t-\omega_j)\big(FV_t+\Delta FV_i(\omega_j)-D_t\big)-s_t(FV_t-D_t)
+$$
+$$
+V_{i,j}= \Delta \text{OwnerTerminal}_i(\omega_j)+w_{fd}FD_i(\omega_j)
+$$
+*解释：第二式显式引入“稀释导致的所有者终值下降”，确保模型能产生“股权过多反而伤害老板”的情形；第三式将现金流改善计入所有者综合收益。*
 
 全局优化问题被建模为 **多重选择背包问题 (Multiple-Choice Knapsack Problem, MCKP)**：
 $$
 \begin{aligned}
 \max_{x} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} V_{i,j} \cdot x_{i,j} \\
-\text{s.t.} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} \omega_j \cdot x_{i,j} \le \Omega_{cap} \quad \text{(总股权上限，如 3\%)} \\
+\text{s.t.} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} \omega_j \cdot x_{i,j} \le \Omega_{cap} \quad \text{(总股权上限，这里取 3\%)} \\
 & \sum_{j=0}^{M} x_{i,j} = 1, \quad \forall i \quad \text{(每人仅能选一档)} \\
 & x_{i,j} \in \{0, 1\}
 \end{aligned}
@@ -3055,27 +3063,32 @@ $$
 
 ### C. 定量结果分析 (Quantitative Analysis)
 
-我们以 Indiana Fever 2024 赛季阵容为基准，设定总股权上限 $\Omega_{cap}=3\%$ 进行求解。模型给出了明确的“给谁”与“给多少”建议：
+我们以 Indiana Fever 2024 赛季阵容为基准，设定总股权上限 $\Omega_{cap}=3\%$ 进行求解。模型给出了明确的“给谁”与“给多少”建议（共 4 名球员获得股权）：
 
 #### 1. 最优分配方案
 
-| 球员 (Player) | 股权比例 (Equity) | 净价值贡献 (Net Value) | 决策依据 (Rationale) |
-| :--- | :---: | :---: | :--- |
-| **Kelsey Mitchell** | **1.0%** | **+2.67** | 高薪资带来的高替代价值 + 极高的竞技评分，属于“必留核心”。 |
-| **Brianna Turner** | **2.0%** | **+5.40** | 极高的边际竞技增益。虽然薪资不如 Mitchell，但特定的技能稀缺性使其激励回报极高。 |
-| 其他球员 (Others) | 0.0% | 0.00 | 技能未达星级门槛或薪资较低，股权激励产生的稀释成本高于收益。 |
+| 球员 (Player) | 股权比例 (Equity) | 净价值贡献 (Net Value) | 现金流贡献 (CF Δ, M) | 决策依据 (Rationale) |
+| :--- | :---: | :---: | :---: | :--- |
+| **Kelsey Mitchell** | **1.0%** | **+9.94** | **+5.35** | 高薪资替代价值 + 较高竞技增益，是“必留核心”。 |
+| **Brianna Turner** | **1.0%** | **+10.27** | **+5.38** | 竞技增益强且边际贡献高，股权激励回报稳定。 |
+| **Aari McDonald** | **0.5%** | **+3.96** | **+2.48** | 成本低但现金流释放明显，属于性价比型激励。 |
+| **Sydney Colson** | **0.5%** | **+4.83** | **+2.57** | 现金流替代收益高于稀释成本，作为补充激励有效。 |
+| 其他球员 (Others) | 0.0% | 0.00 | 0.00 | 技能未达门槛或激励回报不足，股权稀释成本高于收益。 |
 
 #### 2. 宏观指标提升
 相比于“不给股权”的基线情况，该最优方案带来了显著的综合提升：
 
-- **Owner Value $\Delta$**: **+8.07** (单位：模型化价值分数)
-  *解释：扣除 3% 股权稀释的成本后，球队整体价值仍净增 8.07，说明激励带来的竞技升值和薪资空间释放远超稀释代价。*
+- **Owner Value $\Delta$（综合）**: **+28.99** (单位：模型化价值分数)
+  *解释：综合终值变化与现金流释放后的净收益显著为正。*
+
+- **Owner Terminal $\Delta$**: **+13.20**
+  *解释：在当前参数下，给关键球员中等比例股权即可带来终值正增长；并且热力图显示，股权对多数球员仍为负值，这就是稀释风险。*
   
-- **Win% $\Delta$**: **+0.0728** (+7.28个百分点)
-  *解释：核心球员的保留与激励效应预计将赛季胜率提升约 7.3%，这通常意味着从“乐透区”到“季后赛边缘”的质变。*
+- **Win% $\Delta$**: **+0.0697** (+6.97个百分点)
+  *解释：甜点区间机制使得中等股权比例激励最有效，过度授予不会继续提升胜率。*
   
-- **Cash Flow $\Delta$**: **+16.11 Million**
-  *解释：通过用股权替代部分现金薪酬（以及胜率提升带来的门票/赞助增益），球队未来现金流显著改善。这对维持球队运营、避免奢侈税触发线至关重要。*
+- **Cash Flow $\Delta$**: **+15.79 Million**
+  *解释：通过用股权替代部分现金薪酬（以及胜率提升带来的门票/赞助增益），球队未来现金流显著改善。*
 
 ---
 
@@ -3085,37 +3098,43 @@ $$
 
 #### 1. 选才的精准性：技能分布小提琴图
 ![Q4 Skill Violin](newfigures/q4_skill_violin.png)
-**分析**：上图展示了全队球员的综合技能得分（Skill Score）分布。红线标示了模型的“星级门槛”（Star Threshold）。可以看到，Indiana Fever 阵中仅有极少数球员（如 Kelsey Mitchell 等）位于红线右侧。这直观解释了为什么模型只建议给 2 名球员股权——大部分球员的技能边际贡献不足以覆盖股权的稀释成本。这证明了 **Selection Rationality（筛选理性）**。
+**分析**：上图展示了全队球员的综合技能得分（Skill Score）分布。红线标示了模型的“星级门槛”（Star Threshold）。可以看到，Indiana Fever 阵中仅有极少数球员（Kelsey Mitchell 和Turner两个人）位于红线上面。这直观解释了为什么模型建议给这两个人股权的一个原因——大部分球员的技能边际贡献不足以覆盖股权的稀释成本。这证明了 **Selection Rationality（筛选理性）**。
 
 #### 2. 价值来源拆解：三元因子堆叠图
 ![Q4 Tri-Factor Bars](newfigures/q4_trifactor_bars.png)
-**分析**：此图分解了 Mitchell 和 Turner 获得股权的深层原因。
-- 对于高薪球星，**蓝色柱（Financial）** 占比较大，说明股权主要发挥了“省钱”的作用。
-- 对于关键拼图球员，**橙色柱（Competitive）** 可能是主导，说明股权主要用于“激励表现”。
-- 灰色柱代表稀释成本（负值）。只有当彩色柱总和大幅超过灰色柱时，该选项才会被算法选中。
+**分析**：此图分解了 Kelsey Mitchell ，Brianna Turner， Aari McDonald 和 Sydney Colson获得股权的深层原因，是蓝色柱，浅蓝柱最高的四个，也是橙色柱最高的四个
+- **蓝色柱（Financial）** 的占比说明明股权发挥了“省钱”的作用的比例。
+- **浅蓝柱（Competitive）** 体现竞技激励的核心贡献；
+- 对于关键拼图球员，**橙色柱（Competitive）** 是主导，说明股权主要用于“激励表现”。
 
 #### 3. 决策边界：股权选项热力图
 ![Q4 Equity Option Heatmap](newfigures/q4_equity_option_heatmap.png)
-**分析**：热力图的颜色深浅代表净价值（Net Value）。
-- 我们观察到明显的 **“甜点区（Sweet Spot）”**：对于核心球员，1%-2% 的股权对应的净价值最高（深红/深蓝）。
-- 过低股权（<0.5%）激励不足，过高股权（>3%）稀释成本过高导致净值为负。
-- 非核心球员所在的行全为冷色调（低价值），模型正确地将被选概率压至零。
+**分析**：该图明确展示**所有者终值变化**而非“净值”，颜色越绿代表老板终值越高。可以看到：
+- 多数球员在中高股权比例下呈冷色（终值下降），体现稀释风险存在；
+- 我们观察到明显的 **“甜点区（Sweet Spot）”**：对于核心球员Mitchell 和 Turner，1% 的股权对应的对球队贡献的净价值最高（深绿），对于Aari McDonald 和 Sydney Colson，也是1%的股权对应的对球队贡献的净价值最高，但是量上面显著不如Mitchell 和 Turner。因此最终模型给Mitchell 和 Turner各1%的股权，给Aari McDonald 和 Sydney Colson各0.5%的股权（因为分给球员的总股权加起来是4%时总收益最高）
+- 非核心球员所在的行是红色的（低价值），模型正确地将他们的被选概率压至零。 
+
+![Q4 Equity Option Win Heatmap](newfigures/q4_equity_option_win_heatmap.png)
+**分析**：胜率增益热力图展示**甜点区间**：
+- 对核心球员，**1.5%** 左右的激励最有效，比如Mitchell 和 Turner，Aari McDonald 和 Sydney Colson，呈深蓝色。
+- 超过该区间，胜率增益下降，验证“激励过量反而无效”的机制。
 
 #### 4. 敏感性前沿：股权上限影响
 ![Q4 Equity Frontier](newfigures/q4_equity_frontier.png)
 **分析**：曲线展示了总股权上限（Equity Cap, $\Omega_{cap}$）从 1% 增加到 5% 时，全队最大净价值的变化。
 - 曲线呈现 **单调递增但斜率递减** 的特征。
-- 在 3% 附近出现明显的“膝点（Knee Point）”。这意味着 3% 是一个性价比极高的预算上限——既能覆盖最核心的激励需求，又不会造成过度的所有权外流。这验证了我们设定 $\Omega_{cap}=3\%$ 的合理性。
+- 在 4% 出现明显的“膝点（Knee Point）”。这意味着 4% 是一个性价比极高的预算上限——既能覆盖最核心的激励需求，又不会造成过度的所有权外流。这验证了我们设定 $\Omega_{cap}=3\%$ 的合理性。
 
 #### 5. 综合优势雷达图
 ![Q4 Radar Comparison](newfigures/q4_radar_comparison.png)
-**分析**：对比“无股权策略”与“最优股权策略”，雷达图显示最优策略在 **Win%（竞技）** 和 **Cash Flow（财务）** 两个维度上均有显著外扩，同时 **Liability（负债风险）** 有所收缩。这表明该方案是一个帕累托改进（Pareto Improvement），而非单纯的拆东墙补西墙。
+**分析**：对比“无股权策略”与“最优股权策略”，雷达图显示最优策略在 **Win%（竞技）** 和 **Cash Flow（财务）** 两个维度上均有显著外扩。这表明该方案是一个帕累托改进（Pareto Improvement），而非单纯的拆东墙补西墙。
 
 ---
 
 ### 本章小结
 
-通过引入 MCKP 模型，我们成功将 Q4 的定性商业问题转化为定量的数学规划问题。结果表明，**针对性地向 1-2 名核心球员（如 Kelsey Mitchell, Brianna Turner）授予合计约 3% 的股权**，是 Indiana Fever 在当前阶段的最优商业决策。这一策略预计能带来 **7.3% 的胜率提升** 和 **1600 万美元的现金流改善**，完美实现了“竞技-财务”双赢。
+通过引入 MCKP 模型，我们成功将 Q4 的定性商业问题转化为定量的数学规划问题。结果表明，**针对性地向 4 名关键球员（Kelsey Mitchell、Brianna Turner各1%，Aari McDonald、Sydney Colson各0.5%）授予合计约 4% 的股权**，
+是 Indiana Fever 在当前阶段的最优商业决策。该策略预计带来 **约 6.97% 的胜率提升** 与 **1579 万美元的现金流改善**；并且**所有者终值与现金流均为正向贡献（OwnerTerminal Δ=+13.20，OwnerCash Δ=+15.79）**，使所有者综合收益显著增加（+28.99）。这体现了“甜点区间下的激励与稀释平衡”。 
 
 ---
 

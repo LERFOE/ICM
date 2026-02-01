@@ -1,6 +1,6 @@
 # 论文图表报告（newfigures）
 
-本目录中的图表全部由 `project/experiments/generate_paper_figures.py` 生成，服务于 Q1–Q4 的模型构建与评估。图表命名与用途如下。
+本目录中的图表主要由 `project/experiments/generate_paper_figures.py` 生成；Q4 股权激励相关图由 `project/experiments/q4_equity_mckp.py` 生成。图表命名与用途如下。
 
 ---
 
@@ -94,43 +94,81 @@
 
 ---
 
-## Q4 额外业务决策（票价/股权）
+## Q4 额外业务决策（股权激励 / MCKP）
 
-### 14) `q4_ticket_policy_hist.png`
-- **类型**：动作频次柱状图
-- **用途**：展示票价策略在训练后的选择频率
-- **数据来源**：PPO 训练（`project/experiments/q4_dynamic_ticket_or_equity.py`）
-- **解读**：反映模型偏好的票价区间。
+### 14) `q4_skill_violin.png`
+- **类型**：小提琴图（分布对比）
+- **用途**：对比 Indiana 与联盟球员的 skill\_score 分布，用于确定星级门槛。
+- **数据来源**：`allplayers.csv` + `project/experiments/q4_equity_mckp.py`
+- **解读**：显示 Indiana 在联盟分布中的相对位置与门槛区间。
 
-### 15) `q4_equity_policy_hist.png`
-- **类型**：动作频次柱状图
-- **用途**：展示股权激励策略的选择频率
-- **数据来源**：PPO 训练（`project/experiments/q4_dynamic_ticket_or_equity.py`）
-- **解读**：用于阐释“股权稀释的谨慎程度”。
+### 15) `q4_trifactor_bars.png`
+- **类型**：堆叠柱状图
+- **用途**：展示 Tri-Factor 三元驱动（Selection / Competitive / Financial）的贡献结构。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_equity_options.csv`
+- **解读**：用于解释“为何特定球员被选中”。
+
+### 16) `q4_equity_option_heatmap.png`
+- **类型**：热力图（所有者终值）
+- **用途**：每名球员 × 不同股权档位的所有者终值变化对比。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_equity_options.csv`
+- **解读**：颜色越高代表对所有者终值越有利；可观察稀释风险。
+
+### 16.1) `q4_equity_option_win_heatmap.png`
+- **类型**：热力图（胜率增益）
+- **用途**：展示股权比例带来的胜率增益“甜点区间”。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_equity_options.csv`
+- **解读**：可见中等股权比例效果最好，过高反而减弱。
+
+### 17) `q4_equity_allocation_lollipop.png`
+- **类型**：棒棒糖图（方案输出）
+- **用途**：展示 MCKP 输出的最优股权分配。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_mckp_solution.csv`
+- **解读**：直观看到“给谁 + 给多少”。
+
+### 18) `q4_equity_frontier.png`
+- **类型**：折线图（Frontier）
+- **用途**：股权上限对 OwnerValue / Win% / CF 的边际影响。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_equity_frontier.csv`
+- **解读**：用于量化“股权上限”决策。
+
+### 19) `q4_sensitivity_heatmap.png`
+- **类型**：敏感性热力图
+- **用途**：Tri-Factor 权重扰动下的 OwnerValue 变化。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_sensitivity_weights.csv`
+- **解读**：证明策略对权重扰动的稳健性。
+
+### 20) `q4_radar_comparison.png`
+- **类型**：雷达图
+- **用途**：Baseline vs Equity-MCKP 的多指标对比（Win / CF / Owner / Equity）。
+- **数据来源**：`project/experiments/output/q4_equity_mckp/q4_equity_frontier.csv`
+- **解读**：综合评价股权策略的优势。
+
+> 备注：旧版 PPO 动作频次图 `q4_ticket_policy_hist.png` / `q4_equity_policy_hist.png` 保留为过程记录，但不再是 Q4 主报告图。
 
 ---
 
 ## 数据结构与多维分布（补充支撑图）
 
-### 16) `player_corr_heatmap.png`
+### 21) `player_corr_heatmap.png`
 - **类型**：相关性热力图
 - **用途**：展示球员指标间相关性（TS%、USG%、AST%、DWS 等）
 - **数据来源**：`allplayers.csv`
 - **解读**：用于说明特征多样性与变量冗余。
 
-### 17) `player_cluster_parallel_coordinates.png`
+### 22) `player_cluster_parallel_coordinates.png`
 - **类型**：平行坐标图
 - **用途**：展示 5 类球员聚类的技能特征差异
 - **数据来源**：`allplayers.csv` + `project/data/player_kmeans.py`
 - **解读**：直观显示“PG/SG/SF/PF/C”类群的技能区分。
 
-### 18) `attendance_streamgraph.png`
+### 23) `attendance_streamgraph.png`
 - **类型**：堆叠面积图 / Streamgraph
 - **用途**：展示联盟顶级球队 attendance 随时间变化
 - **数据来源**：`wnba_attendance.csv`
 - **解读**：支持“市场环境变化”与票价策略分析。
 
-### 19) `market_bubble_attendance_revenue.png`
+### 24) `market_bubble_attendance_revenue.png`
 - **类型**：气泡图
 - **用途**：展示市场规模（出勤）、收入与估值的关系
 - **数据来源**：`wnba_attendance.csv` + `wnba_valuations.csv`
@@ -140,25 +178,25 @@
 
 ## 回归拟合权重与敏感性分析（新增）
 
-### 20) `skill_weights_bar.png`
+### 25) `skill_weights_bar.png`
 - **类型**：权重柱状图
 - **用途**：展示 Ridge/Lasso 拟合得到的 skill\_score 权重方向与大小
 - **数据来源**：`project/data/skill_weights.json`
 - **解读**：正负号反映指标与目标变量的相关方向；柱高体现重要性。
 
-### 21) `skill_model_mse.png`
+### 26) `skill_model_mse.png`
 - **类型**：模型对比柱状图
 - **用途**：比较 Ridge 与 Lasso 的拟合误差
 - **数据来源**：`project/data/skill_weights.json`
 - **解读**：MSE 越低代表拟合更稳定，本次选用 Ridge。
 
-### 22) `skill_fit_scatter.png`
+### 27) `skill_fit_scatter.png`
 - **类型**：拟合散点图
 - **用途**：展示 Ridge 模型对 Win%、NetRtg、ELO\_proxy 的拟合效果（预测 vs 实际）
 - **数据来源**：`allplayers.csv` + `wnba_advanced_stats.csv` + `IND_ELO_O_SOS_season_level.csv`
 - **解读**：点越靠近对角线，拟合越好。
 
-### 23) `skill_sensitivity.png`
+### 28) `skill_sensitivity.png`
 - **类型**：直方图 + 小提琴图组合
 - **用途**：展示权重扰动下的稳定性（Spearman 相关分布 + Top5 重叠率分布）
 - **数据来源**：`allplayers.csv`（权重扰动 200 次）

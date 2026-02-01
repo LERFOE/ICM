@@ -1,0 +1,31 @@
+{
+  "team_code": "IND",
+  "roster_size": 12,
+  "equity_cap": 0.03,
+  "equity_step": 0.005,
+  "equity_levels": [
+    0.0,
+    0.005,
+    0.01,
+    0.015,
+    0.02
+  ],
+  "star_quantile": 0.85,
+  "omega_scale": 0.01,
+  "value_scale": 0.04,
+  "omega_peak": 0.01,
+  "omega_sigma": 0.0075,
+  "w_se": 1.0,
+  "w_ca": 1.0,
+  "w_fd": 1.0,
+  "ca_alpha": 0.35,
+  "se_alpha": 0.3,
+  "se_gate_scale": 0.6,
+  "fd_alpha": 1.0,
+  "distress_lambda0": 0.3,
+  "distress_cf_scale": 1.6,
+  "distress_lambda_scale": 4.0,
+  "relief_factor": 0.6,
+  "relief_horizon": 6.0,
+  "win_scale": 0.04
+}
