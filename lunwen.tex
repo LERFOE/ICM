@@ -959,16 +959,16 @@ N_{\text{Star,FA}} \in \mathbb{Z}_+ & \text{（自由市场球星数）} \\
 \subsection{3. 财务状态 $\mathcal{F}_t$}
 为了解决 MDP 闭合性问题并统一杠杆定义，我们显式引入\textbf{配置状态} $\mathbf{K}_t$ 和\textbf{所有者权益} $s_t$：
 \begin{equation}
-\mathcal{F}_t = \Big\{ \lambda_t,\ \text{CF}_t,\ \mathbf{\Psi}_t,\ S_{\text{avail},t},\ \text{Tax}_{\text{Status},t},\ V_t,\ s_t,\ \mathbf{K}_t \Big\}
+\mathcal{F}_t = \Big\{ FV_t,\ D_t,\ \lambda_t,\ \text{CF}_t,\ \mathbf{\Psi}_t,\ S_{\text{avail},t},\ \text{Tax}_{\text{Status},t},\ V_t,\ s_t,\ \mathbf{K}_t \Big\}
 \end{equation}
 
 其中关键变量修正定义如下：
 \begin{itemize}
-    \item $\lambda_t = \frac{D_t}{D_t + E_t}$：\textbf{统一杠杆率}。根据题目要求统一采用资产负债口径，与 Section 8 定义保持一致；
-    \item $s_t$：\textbf{所有者持股比例}（Owner's Share）。$s_0=100\%$，随股权激励 $a_{\text{equity}}$ 逐年摊薄；
-    \item $\mathbf{K}_t$：\textbf{经营配置状态}（Configuration State）。记录当前生效的票价、营销与分红档位，用于保证 Action Masking 的马尔可夫性：
+    \item $\lambda_t = \frac{D_t}{FV_t}$：\textbf{统一杠杆率}。分母采用特许经营权价值（Franchise Value）$FV_t$，与后续终值函数 $FV_T-D_T$ 保持一致；
+    \item $s_t$：\textbf{所有者持股比例}（Owner's Share），取值 $s_t\in[0,1]$，初始 $s_0=1$，随股权激励 $a_{\text{equity}}$ 逐年摊薄；
+    \item $\mathbf{K}_t$：\textbf{经营配置状态}（Configuration State）。记录当前生效的票价、营销、分红、薪资和债务档位，用于保证 Action Masking 的马尔可夫性：
     \begin{equation}
-        \mathbf{K}_t = [k_{\text{ticket}},\ k_{\text{marketing}},\ k_{\text{equity}}]
+        \mathbf{K}_t = [k_{\text{ticket}},\ k_{\text{marketing}},\ k_{\text{equity}},\ k_{\text{salary}},\ k_{\text{debt}}]
     \end{equation}
     \item $\mathbf{\Psi}_t$：薪资与合同结构向量（含 $\mu_{S,t},\ \sigma_{S,t},\ r_{\text{max},t},\ S_{\text{commit},t}$）；
     \item $V_t$：本期品牌估值增长率（Valuation Growth Rate）。
@@ -1062,7 +1062,7 @@ N_{\text{Star,FA}} \in \mathbb{Z}_+ & \text{（自由市场球星数）} \\
 \caption{各赛季阶段允许的动作维度}
 \begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{动作分量} & \textbf{Offseason (休赛期)} & \textbf{Regular (常规赛)} & \textbf{Deadline (交易期)} & \textbf{Playoff (季后赛)} \\ \hline
+\textbf{动作分量} & \textbf{Offseason (休赛期)} & \textbf{Regular (常规赛)} & \textbf{TradeDeadline (交易期)} & \textbf{Playoff (季后赛)} \\ \hline
 $a_{\text{roster}}$ & \checkmark & - & \checkmark & - \\ \hline
 $a_{\text{salary}}$ & \checkmark & - & \checkmark & - \\ \hline
 $a_{\text{ticket}}$ & \checkmark & - & - & - \\ \hline
@@ -1074,7 +1074,7 @@ $a_{\text{equity}}$ & \checkmark & \checkmark & - & - \\ \hline
 
 \textbf{掩码机制}：
 \begin{equation}
-\mathcal{A}_{\text{valid}}(s_t) = \{ \mathbf{a} \in \mathcal{A} \mid \forall j, \text{Mutable}(j, \Theta_t) \text{ or } a_j = \mathbf{K}_t[j] \}
+\mathcal{A}_{\text{valid}}(s_t) = \Big\{ \mathbf{a} \in \mathcal{A} \ \Big|\ \forall j,\ \text{Mutable}(j, \Theta_t) \ \lor\ a_j = \mathbf{K}_t[j] \Big\}
 \end{equation}
 这确保了在冻结期（如季后赛），Agent 只能延续上一时刻的状态配置（$a_j = k_j$），消除了对 $a_{t-1}$ 的非马尔可夫依赖。
 
@@ -1116,7 +1116,7 @@ $a_{\text{equity}}$ & \checkmark & \checkmark & - & - \\ \hline
     其中 $V_t$ 仍为增值率。
     
     \item \textbf{归属所有者份额 (Owner's Share, $s_t$)}：
-    初始 $s_0=100\%$。每期股权授予 $a_{\text{equity}}$ 会导致永久性稀释：
+    初始 $s_0=1$。每期股权授予 $a_{\text{equity}}$ 会导致永久性稀释：
     \begin{equation}
     s_{t+1} = s_t \times (1 - \omega(a_{\text{equity}}))
     \end{equation}
@@ -1154,7 +1154,7 @@ K_{j, t} & \text{否则 (Frozen)}
 \begin{equation}
 R_t = w_{\text{CF}} \cdot \frac{\text{CF}_t}{\sigma_{\text{CF}}} 
 + w_{\text{val}} \cdot V_t 
-+ w_{\text{win}} \cdot \mathbb{I}(\text{Playoff}) 
++ w_{\text{win}} \cdot \mathbb{I}(\Theta_t=\text{Playoff})
 - P_{\text{risk}}(\lambda_t)
 \end{equation}
 \textbf{严格定义}：
@@ -1162,7 +1162,7 @@ R_t = w_{\text{CF}} \cdot \frac{\text{CF}_t}{\sigma_{\text{CF}}}
     \item $CF_t$：Section 12.3.1 定义的经营性现金流（不含债权本金）；
     \item $\sigma_{\text{CF}}$：\textbf{现金流归一化常数}（Scaling Factor）。取历史财务数据的标准差（如 \$5M），用于消除量级差异；
     \item $V_t$：\textbf{品牌估值增长率}（Valuation Growth Rate）。直接奖励资产增值速度；
-    \item $P_{\text{risk}}(\lambda_t)$：统一使用 $\lambda_t = \frac{D_t}{D_t + E_t}$ 计算的风险惩罚项。
+    \item $P_{\text{risk}}(\lambda_t)$：统一使用 $\lambda_t = \frac{D_t}{FV_t}$ 计算的风险惩罚项。
 \end{itemize}
 
 \subsection{2. 终值函数 (Terminal Value)}
@@ -1170,6 +1170,7 @@ R_t = w_{\text{CF}} \cdot \frac{\text{CF}_t}{\sigma_{\text{CF}}}
 \begin{equation}
 \text{TerminalValue}(S_T) = s_T \times \left( FV_T - D_T \right)
 \end{equation}
+其中 $s_T\in[0,1]$ 为所有者最终持股比例，$FV_T$ 与 $D_T$ 为终止时刻的特许经营权价值与债务存量，均属于财务状态 $\mathcal{F}_T$ 的分量。
 
 \textbf{逻辑闭环}：
 \begin{itemize}

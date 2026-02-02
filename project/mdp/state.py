@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 import numpy as np
 
 from project.mdp.config import MDPConfig
@@ -99,6 +99,29 @@ class EnvState:
 
 
 @dataclass
+class InjuryState:
+    player_name: str
+    player_id: int
+    absence_left: int
+    availability: float
+    # Track a temporary replacement player during the injury window.
+    # This is required so the environment stays Markov and can correctly
+    # account for persistent payroll premium / star-revenue recovery across steps.
+    rep_player_id: int = -1
+    rep_player_name: str = ""
+
+    def copy(self) -> "InjuryState":
+        return InjuryState(
+            player_name=str(self.player_name),
+            player_id=int(self.player_id),
+            absence_left=int(self.absence_left),
+            availability=float(self.availability),
+            rep_player_id=int(self.rep_player_id),
+            rep_player_name=str(self.rep_player_name),
+        )
+
+
+@dataclass
 class State:
     R: CompetitiveState
     F: FinancialState
@@ -106,6 +129,7 @@ class State:
     Theta: str
     K: List[int]
     year: int
+    I: Optional[InjuryState] = None
 
     def copy(self) -> "State":
         return State(
@@ -115,6 +139,7 @@ class State:
             Theta=str(self.Theta),
             K=list(self.K),
             year=int(self.year),
+            I=None if self.I is None else self.I.copy(),
         )
 
     def to_vector(self, config: MDPConfig) -> np.ndarray:
@@ -223,4 +248,4 @@ def initial_state(config: MDPConfig, rng: np.random.Generator) -> State:
     R = initial_competitive_state(config, rng)
     F = initial_financial_state(config, K)
     E = initial_env_state(config)
-    return State(R=R, F=F, E=E, Theta=PHASE_OFFSEASON, K=K, year=config.start_year)
+    return State(R=R, F=F, E=E, Theta=PHASE_OFFSEASON, K=K, year=config.start_year, I=None)

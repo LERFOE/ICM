@@ -1,0 +1,7 @@
+step,phase,a_roster,a_salary,a_ticket,a_marketing,a_debt,a_equity,candidate,salary_tier,equity_tier,extra_payroll,reward,roster_label,salary_label,ticket_label,marketing_label,debt_label,equity_label
+0,regular,3,2,2,0,2,0,,,,0.0,4.259911519166796,hold,over_cap,1.0x,low,maintain,0%
+1,trade_deadline,6,2,2,1,2,0,Allisha Gray,2.0,0.0,0.17923932725031722,2.322540132760239,buyer_aggressive,over_cap,1.0x,mid_low,maintain,0%
+2,playoff,3,2,2,3,2,0,,,,0.0,4.162411398267211,hold,over_cap,1.0x,high,maintain,0%
+3,offseason,3,4,2,1,1,1,,,,0.0,3.3070723327192804,hold,apron,1.0x,mid_low,deleverage,0.5%
+4,regular,3,2,2,1,2,0,,,,0.0,4.170125275979913,hold,over_cap,1.0x,mid_low,maintain,0%
+5,trade_deadline,6,5,2,1,2,0,Allisha Gray,5.0,0.0,0.23627002228450902,2.3104167424780453,buyer_aggressive,max_apron,1.0x,mid_low,maintain,0%

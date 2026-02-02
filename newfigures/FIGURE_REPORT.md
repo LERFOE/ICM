@@ -144,6 +144,40 @@
 - **数据来源**：`project/experiments/output/q4_equity_mckp/q4_equity_frontier.csv`
 - **解读**：综合评价股权策略的优势。
 
+---
+
+## Q5 伤病重规划（Injury Replan）
+
+### 29) `q5_metrics_timeline.png`
+- **类型**：多指标时间序列
+- **用途**：展示伤病重规划后的 Win%、CF、OwnerTerminal 等关键指标变化
+- **数据来源**：`project/experiments/output/q5_injury_replan/q5_metrics.csv`
+
+### 30) `q5_action_heatmap.png`
+- **类型**：动作热力图
+- **用途**：展示每个阶段的 6 维动作选择强度
+- **数据来源**：`project/experiments/output/q5_injury_replan/q5_plan.csv`
+
+### 31) `q5_candidate_scatter.png`
+- **类型**：散点图
+- **用途**：候选补强池技能-薪资分布与球星标记
+- **数据来源**：`project/experiments/output/q5_injury_replan/q5_candidate_pool.csv`
+
+### 32) `q5_compare_timeline.png`
+- **类型**：对比时间序列
+- **用途**：模型重规划 vs 直接替换（只换强者、其他策略不变）的 Win%、CF、OwnerTerminal、Leverage 对比
+- **数据来源**：`project/experiments/output/q5_compare_replan/q5_compare_metrics.csv`
+
+### 33) `q5_compare_final_bars.png`
+- **类型**：最终值对比柱状图
+- **用途**：展示两种策略在最终时刻的指标水平
+- **数据来源**：`project/experiments/output/q5_compare_replan/q5_compare_final.csv`
+
+### 34) `q5_compare_delta.png`
+- **类型**：差值柱状图
+- **用途**：展示“模型重规划 - 直接替换”的指标增量
+- **数据来源**：`project/experiments/output/q5_compare_replan/q5_compare_final.csv`
+
 > 备注：旧版 PPO 动作频次图 `q4_ticket_policy_hist.png` / `q4_equity_policy_hist.png` 保留为过程记录，但不再是 Q4 主报告图。
 
 ---

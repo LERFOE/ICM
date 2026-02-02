@@ -1,0 +1,17 @@
+step,phase,a_roster,a_salary,a_ticket,a_marketing,a_debt,a_equity,candidate,extra_payroll,scenario
+0,regular,3,2,2,0,2,0,,0.0,model_replan
+1,trade_deadline,6,2,2,1,2,0,Allisha Gray,0.17923932725031722,model_replan
+2,playoff,3,2,2,3,2,0,,0.0,model_replan
+3,offseason,3,4,2,1,1,1,,0.0,model_replan
+4,regular,3,2,2,1,2,0,,0.0,model_replan
+5,trade_deadline,6,5,2,1,2,0,Allisha Gray,0.23627002228450902,model_replan
+6,playoff,3,2,2,3,2,0,,0.0,model_replan
+7,offseason,2,5,5,0,1,0,,0.0,model_replan
+0,regular,3,2,2,1,2,0,Allisha Gray,0.0,replace_only
+1,trade_deadline,3,2,2,1,2,0,Allisha Gray,0.17923932725031722,replace_only
+2,playoff,3,2,2,1,2,0,Allisha Gray,0.17923932725031722,replace_only
+3,offseason,3,2,2,1,2,0,Allisha Gray,0.17923932725031722,replace_only
+4,regular,3,2,2,1,2,0,Allisha Gray,0.17923932725031722,replace_only
+5,trade_deadline,3,2,2,1,2,0,Allisha Gray,0.17923932725031722,replace_only
+6,playoff,3,2,2,1,2,0,Allisha Gray,0.0,replace_only
+7,offseason,3,2,2,1,2,0,Allisha Gray,0.0,replace_only

@@ -9,13 +9,72 @@ from numpy.linalg import svd
 
 
 DEFAULT_SKILL_FILE_CANDIDATES = [
+    # Prefer the raw allplayers table because it includes `Pos`/`MP` (needed for
+    # position fallback and roster/contract logic). We z-score internally.
+    Path("allplayers.csv"),
     Path("wnba_2023_skill_vector.csv"),
     Path("project/data/wnba_2023_skill_vector.csv"),
     Path("project/data/clean/wnba_2023_skill_vector.csv"),
-    Path("allplayers.csv"),
 ]
 
 FEATURES = ["WS/40", "TS%", "USG%", "AST%", "TRB%", "DWS_40"]
+
+# Prefer explicit 5-position labels when available. This file is authored in the
+# workspace and provides a `pos`/`Pos5` column that maps each player into
+# {PG,SG,SF,PF,C}.
+POSITION_LABEL_FILE_CANDIDATES = [
+    Path("players_with_position_scores.xlsx"),
+    Path("players_with_position_scores.csv"),
+    Path("副本players_with_position_scores.xlsx"),
+    Path("project/data/players_with_position_scores.xlsx"),
+    Path("project/data/players_with_position_scores.csv"),
+]
+
+# Position-specific skill coefficients (global z-scores of the metrics).
+# Columns: TS%, USG%, AST%, TRB%, DWS_40 + intercept.
+POS_SKILL_FEATURES = ["TS%", "USG%", "AST%", "TRB%", "DWS_40"]
+POS_SKILL_COEFS = {
+    "PG": {
+        "TS%": 0.9008671242509894,
+        "USG%": 0.40756460796412836,
+        "AST%": 0.24717441934183307,
+        "TRB%": -0.09648838687418784,
+        "DWS_40": 0.6689871162882965,
+        "intercept": -0.23055264421285782,
+    },
+    "SG": {
+        "TS%": 0.6688038013398157,
+        "USG%": 0.40077434060153266,
+        "AST%": 0.22978475669950094,
+        "TRB%": 0.5710248435273881,
+        "DWS_40": 0.6391548425167576,
+        "intercept": 0.10998784379143325,
+    },
+    "SF": {
+        "TS%": 0.5616816855093115,
+        "USG%": 0.13946503868177368,
+        "AST%": 0.20592666321068887,
+        "TRB%": 0.5215194331071136,
+        "DWS_40": 0.6355697175003144,
+        "intercept": -0.0017023490973049752,
+    },
+    "PF": {
+        "TS%": 0.862690858962707,
+        "USG%": 0.32980035691846504,
+        "AST%": 0.21651299797958964,
+        "TRB%": 0.0052714881470029545,
+        "DWS_40": 0.9148345116037043,
+        "intercept": -0.00578164029869202,
+    },
+    "C": {
+        "TS%": 0.5935323393302042,
+        "USG%": 0.04857135754404065,
+        "AST%": 0.4739198176983939,
+        "TRB%": 0.559347058479791,
+        "DWS_40": 0.6267665466322905,
+        "intercept": -0.13958131617902808,
+    },
+}
 DEFAULT_SKILL_WEIGHTS = {
     "WS/40": 0.35,
     "TS%": 0.20,
@@ -275,6 +334,111 @@ def load_skill_weights() -> Dict[str, float]:
     return DEFAULT_SKILL_WEIGHTS.copy()
 
 
+def _load_position_labels() -> pd.DataFrame:
+    """
+    Load explicit 5-position labels (PG/SG/SF/PF/C) if available.
+
+    Expected columns:
+      - Player, Team
+      - pos OR Pos5 (preferred)
+    """
+    for path in POSITION_LABEL_FILE_CANDIDATES:
+        if not path.exists():
+            continue
+        try:
+            if path.suffix.lower() in (".xlsx", ".xls"):
+                df = pd.read_excel(path)
+            else:
+                df = pd.read_csv(path)
+        except Exception:
+            continue
+
+        pos_col = None
+        for c in ("pos", "Pos5", "pos5", "POS5"):
+            if c in df.columns:
+                pos_col = c
+                break
+        if pos_col is None:
+            continue
+        if "Player" not in df.columns or "Team" not in df.columns:
+            continue
+
+        out = df[["Player", "Team", pos_col]].copy()
+        out = out.rename(columns={pos_col: "Pos5"})
+        out["Player"] = out["Player"].astype(str).str.strip()
+        out["Team"] = out["Team"].astype(str).str.strip()
+        out["Pos5"] = out["Pos5"].astype(str).str.strip().str.upper()
+        out = out[out["Pos5"].isin(["PG", "SG", "SF", "PF", "C"])]
+        if not out.empty:
+            return out
+
+    return pd.DataFrame(columns=["Player", "Team", "Pos5"])
+
+
+def _infer_pos5_from_raw(pos_raw: str, row_z: pd.Series) -> str:
+    """
+    Fallback mapper for players missing Pos5 in the label file.
+
+    Uses the original allplayers `Pos` (often G/F/C or hybrids) and standardized
+    stats to split into 5 positions. This is only used for a small tail of
+    players not covered by the position-score file.
+    """
+    s = str(pos_raw).upper()
+    if not s or s in {"NAN", "NONE"}:
+        # No categorical hint: infer from z-feature profile only.
+        try:
+            ast = float(row_z.get("AST%", 0.0))
+            trb = float(row_z.get("TRB%", 0.0))
+            dws = float(row_z.get("DWS_40", 0.0))
+            usg = float(row_z.get("USG%", 0.0))
+        except Exception:
+            return "SF"
+        frontcourt = 0.6 * trb + 0.4 * dws
+        if frontcourt >= 1.0:
+            return "C" if trb >= 1.2 else "PF"
+        if ast >= 0.6:
+            return "PG"
+        if usg >= 0.4:
+            return "SG"
+        return "SF"
+    if "C" in s:
+        return "C"
+    if "G" in s:
+        # playmaking proxy: higher AST% -> PG; otherwise SG
+        try:
+            return "PG" if float(row_z.get("AST%", 0.0)) >= 0.0 else "SG"
+        except Exception:
+            return "SG"
+    if "F" in s:
+        # frontcourt proxy: higher reb/def -> PF; otherwise SF
+        try:
+            score = 0.5 * float(row_z.get("TRB%", 0.0)) + 0.5 * float(row_z.get("DWS_40", 0.0))
+            return "PF" if score >= 0.0 else "SF"
+        except Exception:
+            return "SF"
+    # default wing
+    return "SF"
+
+
+def _pos_skill_score(df_z: pd.DataFrame, position_col: str = "Position") -> pd.Series:
+    """
+    Position-conditioned skill score using POS_SKILL_COEFS on global z-scores.
+
+    Notes:
+      - df_z must contain z-scored columns for POS_SKILL_FEATURES.
+      - if a player's position is missing/unknown, fall back to SF weights.
+    """
+    scores = []
+    for _, row in df_z.iterrows():
+        pos = str(row.get(position_col, "")).upper()
+        w = POS_SKILL_COEFS.get(pos) or POS_SKILL_COEFS["SF"]
+        val = float(w["intercept"])
+        for f in POS_SKILL_FEATURES:
+            val += float(w[f]) * float(row.get(f, 0.0))
+        scores.append(val)
+    return pd.Series(scores, index=df_z.index, dtype=float)
+
+
 def standardize(X: np.ndarray) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     mean = np.nanmean(X, axis=0)
     std = np.nanstd(X, axis=0)
@@ -343,6 +507,7 @@ def build_player_model(
     n_clusters: int = 5,
     seed: int = 42,
     roster_size: int = 12,
+    use_position_labels: bool = True,
 ) -> PlayerModel:
     if path is None:
         path = find_player_file()
@@ -354,20 +519,59 @@ def build_player_model(
     df = load_player_data(path)
     df = df.copy()
     df["pid"] = np.arange(len(df))
+
+    # Prefer explicit 5-position labels if available (Pos5/pos from xlsx).
+    # This replaces the previous KMeans->position heuristic for lineup building.
+    pos_labels = _load_position_labels() if use_position_labels else pd.DataFrame()
+    if not pos_labels.empty:
+        df["Player"] = df["Player"].astype(str).str.strip()
+        df["Team"] = df["Team"].astype(str).str.strip()
+        df = df.merge(pos_labels, on=["Player", "Team"], how="left")
+        df["Position"] = df["Pos5"].astype(str).str.upper()
+    else:
+        df["Position"] = np.nan
+
+    # Raw feature matrix (before z-scoring). Note: must be captured *after* merge
+    # so indices stay aligned with Pos5 coverage mask.
     X = df[FEATURES].copy()
 
-    Xs, scaler = standardize(X.values)
-    labels, centroids = simple_kmeans(Xs, n_clusters=n_clusters, seed=seed, iters=30)
+    # Standardize using the same player subset that was used to fit positional coefficients
+    # (i.e., the position-score file coverage), to keep coefficient interpretation stable.
+    calib_mask = df.get("Pos5").notna() if "Pos5" in df.columns else pd.Series(False, index=df.index)
+    X_calib = X[calib_mask] if calib_mask.any() else X
+    Xs_calib, scaler = standardize(X_calib.values)
+    mean = scaler["mean"]
+    std = scaler["std"]
+    Xs_all = (X.values - mean) / std
+    z = pd.DataFrame(Xs_all, columns=FEATURES)
     df = df.copy()
-    df["cluster"] = labels
+    # Store standardized features in the dataframe (used by Q-vector computation)
+    df[FEATURES] = z[FEATURES].values
 
-    # Composite skill score (weighted z)
-    z = pd.DataFrame(Xs, columns=FEATURES)
+    # Fallback for players not covered by the position label file
+    missing_pos = df["Position"].isna() | df["Position"].astype(str).str.lower().isin(["", "nan", "none"])
+    if missing_pos.any():
+        df.loc[missing_pos, "Position"] = df.loc[missing_pos].apply(
+            lambda r: _infer_pos5_from_raw(r.get("Pos", ""), r), axis=1
+        )
+    df["Position"] = df["Position"].astype(str).str.strip().str.upper()
+
+    pos_order = ["PG", "SG", "SF", "PF", "C"]
+    pos_to_cluster = {p: i for i, p in enumerate(pos_order)}
+    df["cluster"] = df["Position"].map(pos_to_cluster).fillna(pos_to_cluster["SF"]).astype(int)
+    cluster_to_position = {i: p for p, i in pos_to_cluster.items()}
+
+    # Skill score: position-conditioned linear model on global z-scores.
+    df["skill_score"] = _pos_skill_score(df, position_col="Position")
+
+    # Keep the legacy global weighted-z score for debugging/compatibility.
     weights = load_skill_weights()
-    df["skill_score"] = sum(weights[f] * z[f] for f in FEATURES)
+    df["skill_score_global"] = sum(float(weights[f]) * df[f].astype(float) for f in FEATURES)
+
+    # Position "centroids" are not used for decision-making; keep a placeholder for logging/plots.
+    centroids = np.zeros((len(pos_order), len(FEATURES)), dtype=float)
 
     cluster_profiles = df.groupby("cluster")[FEATURES].mean()
-    cluster_to_position = _assign_positions(cluster_profiles)
 
     age_map, contract_map = _load_spotrac_maps()
 

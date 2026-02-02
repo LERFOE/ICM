@@ -21,6 +21,8 @@ def fin_transition_and_reward(
     Theta: str,
     rng: np.random.Generator,
     config: MDPConfig,
+    injury_star_penalty: float = 0.0,
+    extra_payroll: float = 0.0,
 ) -> tuple[FinancialState, float]:
     F_next = F.copy()
 
@@ -33,6 +35,8 @@ def fin_transition_and_reward(
 
     performance_factor = 1.0 + config.rev_win_beta * (win_pct - 0.5)
     star_factor = 1.0 + config.rev_star_beta * np.tanh(float(np.mean(R_next.Q)))
+    if injury_star_penalty > 0:
+        star_factor *= float(np.clip(1.0 - injury_star_penalty, 0.7, 1.0))
     macro_factor = config.macro_revenue_factor[E_next.macro]
     # Local competition dilutes demand (e.g., new team in region competes for attention).
     # Keep the channel explicit so Q3 can trace "Δ_compete -> revenue/CF" quantitatively.
@@ -71,6 +75,9 @@ def fin_transition_and_reward(
         payroll *= 0.95
     # Bidding intensity raises the effective cost of acquiring/retaining talent.
     payroll *= 1.0 + config.bidding_payroll_beta * max(0.0, float(E_next.bidding_intensity - config.base_bidding))
+    # Add candidate-specific premium/discount (e.g., replacement star cost).
+    if extra_payroll != 0.0:
+        payroll = max(0.0, payroll + float(extra_payroll))
 
     payroll_cash = payroll * (1.0 - equity_rate)
 

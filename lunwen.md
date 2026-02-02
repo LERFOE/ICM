@@ -3034,7 +3034,7 @@ $$
 $$
 \begin{aligned}
 \max_{x} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} V_{i,j} \cdot x_{i,j} \\
-\text{s.t.} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} \omega_j \cdot x_{i,j} \le \Omega_{cap} \quad \text{(总股权上限，这里取 3\%)} \\
+\text{s.t.} \quad & \sum_{i=1}^{N} \sum_{j=0}^{M} \omega_j \cdot x_{i,j} \le \Omega_{cap} \quad \text{(总股权上限，这里取 4\%)} \\
 & \sum_{j=0}^{M} x_{i,j} = 1, \quad \forall i \quad \text{(每人仅能选一档)} \\
 & x_{i,j} \in \{0, 1\}
 \end{aligned}
@@ -3138,6 +3138,272 @@ $$
 
 ---
 
+## Q5 管理决策调整：基于动态重规划的关键球员伤病应对 (Key Player Injury Management)
+
+本节按“**数学模型 → 算法实现 → 结果分析**”组织，所有结论以代码实现为准，且数值均来自一键脚本输出（见下）。
+
+**一键脚本（复现与出图）**：
+- 伤病重规划：`project/experiments/q5_injury_replan.py`
+- 公平对比：`project/experiments/q5_compare_replan_vs_replace.py`
+
+**输出数据（自动生成）**：
+- `project/experiments/output/q5_injury_replan/q5_injury_input.json`（伤病输入）
+- `project/experiments/output/q5_injury_replan/q5_candidate_pool.csv`（候选池）
+- `project/experiments/output/q5_injury_replan/q5_plan.csv`（每步 6 维动作 + 具体候选 + extra_payroll）
+- `project/experiments/output/q5_injury_replan/q5_metrics.csv`（每步 Win/CF/OwnerTerminal/Leverage 等）
+- `project/experiments/output/q5_compare_replan/q5_compare_metrics.csv`（模型 vs replace-only 全时序对比）
+- `project/experiments/output/q5_compare_replan/q5_compare_final.csv`（最终对比）
+- `project/experiments/output/q5_compare_replan/q5_compare_plan.csv`（两种策略的动作向量与候选）
+
+**图表输出（论文使用）**：
+- `newfigures/q5_metrics_timeline.png`（重规划后关键指标时间序列）
+- `newfigures/q5_action_heatmap.png`（6 维动作热力图）
+- `newfigures/q5_candidate_scatter.png`（候选池技能-薪资散点）
+- `newfigures/q5_compare_timeline.png`（模型 vs replace-only 时间序列）
+- `newfigures/q5_compare_final_bars.png`（最终值对比）
+- `newfigures/q5_compare_delta.png`（模型优势：差值柱状图）
+
+---
+
+### A. 数学建模（伤病可观测冲击 + 阶段约束下的全系统重规划）
+
+#### A1) Q5 相对 Q1–Q4 的关键改进（“模型做了什么增补”）
+
+Q1–Q4 的 MDP 已能刻画“竞技—财务—环境”的动态权衡，但对“关键球员伤病”存在两类缺口：
+1) **伤病是随机噪声**：无法表达“伤的是谁、缺多久”，因此无法做“从当前状态作为新起点”的重规划；
+2) **补强成本与收益解耦**：仅改变阵容强度而不计入球星溢价，容易使“只换最强者”的基线看起来不公平地强；
+3) **阶段约束未显式用于应急**：真实联赛存在交易窗/休赛期等制度性窗口，伤病应急必须在可行动作集内求最优。
+
+因此 Q5 增补三条机制并落地到代码：
+- 把伤病写入状态 $I_t$（显式可观测冲击）；
+- 把“球星缺阵”显式写入收入通道（票房/赞助下滑）；
+- 把“替代人溢价成本”显式写入工资成本（extra payroll），并保证对比基线同样计入；
+- 在 Action Mask 约束下，用 MCTS 从当前伤病状态出发滚动重规划。
+
+#### A2) 扩展状态空间：加入伤病态 $I_t$
+
+Q5 的总状态为：
+$$
+\mathcal{S}_t=\{\mathcal{R}_t,\mathcal{F}_t,\mathcal{E}_t,\Theta_t,K_t,I_t\}
+$$
+解释：$\mathcal{R}_t$ 为竞技状态，$\mathcal{F}_t$ 为财务状态，$\mathcal{E}_t$ 为环境状态；$\Theta_t$ 为阶段（regular/trade/offseason/playoff），$K_t$ 为冻结动作承诺；$I_t$ 为伤病状态。
+
+伤病状态定义为：
+$$
+I_t=\{pid_{inj},\ \tau_t,\ \alpha_t\}
+$$
+解释：$pid_{inj}$ 为受伤球员的唯一 ID；$\tau_t$ 为剩余缺阵步数（countdown）；$\alpha_t\in[0,1]$ 为可用性系数（0 表示完全伤停）。
+
+#### A3) 伤病对竞技状态的传导（真实球员阵容）
+
+令球队当前可用阵容由球员集合 $Roster_t=\{p_1,\dots,p_n\}$ 表示（代码里是 `R.roster_ids`），每位球员有特征向量 $x_p$（来自 `allplayers.csv` 的标准化指标与位置标签）。
+
+伤病对阵容贡献的处理为：
+$$
+x_{pid_{inj}}^{inj}=
+\begin{cases}
+\mathbf{0}, & \alpha_t=0\\
+\alpha_t\cdot x_{pid_{inj}}, & 0<\alpha_t<1
+\end{cases}
+$$
+解释：若完全伤停，则从可用阵容中剔除；若部分可用，则按可用性比例缩放其贡献（对应 `q5_injury_replan.py::_apply_injury`）。
+
+竞技摘要（能力向量 $Q_t$ 与协同 $Syn_t$）由阵容到状态的确定性聚合函数给出：
+$$
+\mathcal{R}_t^{inj}=g(Roster_t^{inj})
+$$
+解释：$g(\cdot)$ 对应 `PlayerModel.compute_state_from_roster`，把真实球员阵容聚合成模型竞技状态（用于胜率/ELO 更新与后续收入链路）。
+
+#### A4) 伤病对收入的传导：球星曝光损失（StarFactor）
+
+财务转移中，门票收入包含球星曝光乘子（代码里 `star_factor`）：
+$$
+StarFactor_t = 1+\beta_{star}\tanh(\overline{Q_t})
+$$
+解释：$\overline{Q_t}$ 为阵容能力均值；$\beta_{star}$ 为球星带来的边际收入系数（对应 `transitions_fin.py` 的 `rev_star_beta`）。
+
+定义球星指示函数（用于识别“关键球员缺阵”）：
+$$
+\mathbb{I}_{star}(p)=\mathbb{I}\big(skill(p)\ge q_{0.85}\big)
+$$
+解释：当球员技能评分位于联盟前 15%（0.85 分位）时记为球星（与代码一致：`skill_score.quantile(0.85)`）。
+
+伤病导致的球星曝光损失惩罚为：
+$$
+\pi_t=\max\{0,\ \mathbb{I}_{star}(pid_{inj})-\mathbb{I}_{star}(pid_{rep})\}\cdot(1-\alpha_t)
+$$
+解释：若替代者也是球星，则曝光损失显著降低；若没有替代者或替代者非球星，损失更大（对应 `q5_compare_replan_vs_replace.py` 与 `q5_injury_replan.py` 的 `injury_penalty`）。
+
+最终对收入链路的作用写为：
+$$
+StarFactor_t^{inj}=StarFactor_t\cdot \text{clip}(1-\pi_t,\ 0.7,\ 1.0)
+$$
+解释：用截断确保不出现不合理的负收入，同时反映“球星缺阵对票房/赞助的非线性打击”。
+
+#### A5) 替代人溢价成本：extra payroll（解决“免费升级”）
+
+薪资动作 $a_{salary}$ 先给出全队基准 payroll（工资帽倍数），再叠加候选人的溢价：
+$$
+Payroll^{base}(a_{salary}) = Cap\cdot m_{salary}(a_{salary})
+$$
+解释：$Cap$ 为工资帽；$m_{salary}(\cdot)$ 为薪资倍数（对应 `config.salary_multipliers`）。
+
+令平均单人预算为：
+$$
+\bar S(a_{salary})=\frac{Payroll^{base}(a_{salary})}{N}
+$$
+解释：$N$ 为 roster size（WNBA 阵容人数）。
+
+替代候选 $c$ 的估算工资（用于可行性筛选与溢价计算）为：
+$$
+S(c\mid a_{salary})=\bar S(a_{salary})\cdot\big(0.7+1.1\cdot \text{clip}(skill(c),-1.5,2.0)\big)
+$$
+解释：技能越高，球员市场报价越高；该式对应 `q5_injury_replan.py::_estimate_salary`。
+
+定义候选溢价：
+$$
+\Delta Payroll_c = S(c\mid a_{salary})-\bar S(a_{salary})
+$$
+解释：球星替代会带来正溢价，普通替代可能是负溢价（对应 `extra_payroll`）。
+
+最终 payroll 进入财务转移为：
+$$
+Payroll = Payroll^{base}\cdot Adj(a_{roster})\cdot Adj(E_{bid})+\Delta Payroll_c
+$$
+解释：`Adj(a_roster)` 体现补强/甩卖导致工资结构变化，`Adj(E_bid)` 体现竞价强度抬升成本（与原模型一致）；$\Delta Payroll_c$ 为 Q5 新增成本通道（对应 `transitions_fin.py::extra_payroll`）。
+
+#### A6) 阶段约束（Action Mask）与“从当前状态重规划”
+
+Q5 与 Q1–Q4 保持同一 6 维动作系统，且严格受阶段约束（Action Mask）：
+$$
+\mathcal{A}_{valid}(S_t)=\{\mathbf{a}\in\mathcal{A}\mid \text{Mutable}(j,\Theta_t)=1\ \text{or}\ a_j=K_t[j]\}
+$$
+解释：若处于常规赛且 roster 冻结，则“想补强也不能补强”，只能等到交易窗/休赛期；模型会从当前伤病状态出发规划到下一个可行动作窗口。
+
+---
+
+### B. 算法选择与求解（双层 MCTS：战略动作 + 战术候选子问题）
+
+#### B1) 为什么选择 MCTS（而不是直接贪心/单步决策）
+
+Q5 的难点是“**窗口约束 + 多目标**”：伤病发生后，短期可能只能调整营销/票价，补强要等交易窗；同时财务端存在税线、利息、杠杆风险等惩罚。MCTS 是一种基于仿真的规划算法，适合在离散动作空间内做多步权衡。
+
+#### B2) 双层结构：战略层动作 + 战术层候选
+
+战略层：在每个状态节点，MCTS 选择 6 维动作向量：
+$$
+\mathbf{a}_t=(a_{roster},a_{salary},a_{ticket},a_{marketing},a_{debt},a_{equity})
+$$
+解释：与 Q1–Q4 同口径（动作范围见 `project/mdp/action.py`）。
+
+战术层：当且仅当满足以下条件时，触发“签谁”的子问题：
+- $a_{roster}\ge 4$（buyer-side 补强档位）；
+- roster 维在当前阶段可变（`Mutable(roster,Θ_t)=1`）。
+
+#### B3) 候选池生成（Top-N，同位置/角色）
+
+候选池生成规则（对应 `q5_injury_replan.py::_build_candidate_pool`）：
+$$
+\mathcal{C}_t=\text{Top-}N\ \{c\mid c\notin Roster_t,\ cluster(c)=cluster(pid_{inj})\}\ \text{by}\ skill(c)
+$$
+解释：只在同位置/角色（同 cluster）中取 Top-N（默认 $N=10$），避免“用中锋替后卫”的不现实操作；`cluster` 来自 `players_with_position_scores` 的 5 位置标签（PG/SG/SF/PF/C）。
+
+#### B4) 候选评估与可行性（把“签谁 + 成本”嵌入一步转移）
+
+给定动作 $\mathbf{a}_t$ 与候选 $c\in\mathcal{C}_t$，先做可行性筛选：
+$$
+S(c\mid a_{salary})\cdot(1-\omega(a_{equity}))\le 2.5\cdot \bar S(a_{salary})
+$$
+解释：允许球星合同最高到平均预算的 2.5 倍，但超出则视为该动作不可行（对应代码阈值 `2.5`）。
+
+随后用“一步 look-ahead”计算候选得分（对应 `q5_injury_replan.py::_select_candidate_for_action`）：
+$$
+\text{Score}(c)=r(S_{t+1})+\kappa_{win}\cdot(Win\%_{t+1}-Win\%_0)+\kappa_{skill}\cdot skill(c)
+$$
+解释：$r(S_{t+1})$ 为 MDP 奖励（含 CF、估值增长、风险惩罚）；额外加入胜率与技能偏好，使模型优先选择“能真实修复胜率”的替代者（$\kappa$ 对应代码中的 `candidate_win_weight` 与 `candidate_skill_weight`）。
+
+选择最优候选：
+$$
+c_t^*=\arg\max_{c\in\mathcal{C}_t}\text{Score}(c)
+$$
+解释：这是一个小规模离散优化（Top-N），嵌入到每个 MCTS 节点的状态转移中。
+
+#### B5) MCTS 重规划（从伤病后的当前状态出发）
+
+MCTS 以当前状态 $S_t$ 为根节点，在阶段约束下搜索动作序列：
+$$
+\max_{\pi}\ \mathbb{E}\left[\sum_{k=0}^{H-1}\gamma^k r_{t+k} + \beta\cdot TerminalValue(S_{t+H})\right]
+$$
+解释：$\gamma$ 为折扣因子（代码取 0.95），$H$ 为规划深度；终值采用 $TerminalValue=s_T(FV_T-D_T)$，并由 `terminal_weight` 加权。
+
+**实现位置**：
+- 规划器：`project/solvers/mcts.py`
+- 环境封装：`project/experiments/q5_injury_replan.py::InjuryReplanEnv`
+
+#### B6) 公平对比基线：Replace-only（只换最强者，策略不变）
+
+为回答“只用最强候选顶替，其他 6 维策略保持初始 K 不变”的问题，基线策略定义为：
+- 固定动作 $\mathbf{a}_t \equiv K_0$（不主动调整票价/营销/债务/股权等）；
+- 在**首次 roster 可变窗口**（交易窗/休赛期）用 $\arg\max skill(c)$ 替代；
+- 同样计入 $\Delta Payroll_c$ 与球星曝光惩罚 $\pi_t$（保证比较公平）。
+
+实现脚本：`project/experiments/q5_compare_replan_vs_replace.py`。
+
+---
+
+### C. 结果分析（以 Kelsey Mitchell 伤停 6 步为例）
+
+#### C1) 场景设定
+
+我们设置伤病事件：
+- injured\_player = **Kelsey Mitchell**
+- absence = 6（步长）
+- availability = 0.0
+- 初始阶段：regular
+
+并用脚本输出完整过程数据与图表（路径见本节开头的“输出数据/图表输出”列表）。
+
+#### C2) 策略结构（动作向量 + 具体补强）
+
+从 `q5_compare_plan.csv` 可见，模型策略的结构性特点是：
+1) **等待窗口**：常规赛 roster 冻结，模型先在可调维度上做运营对冲；
+2) **交易窗补强**：进入 trade\_deadline 后执行 buyer-side roster 动作并选择球星替代（Allisha Gray）；
+3) **休赛期去杠杆**：在 offseason 调整债务与其他运营动作，使利息负担下降，杠杆率回落。
+
+#### C3) 量化结果：四指标严格帕累托改进
+
+从 `q5_compare_final.csv` 读取最终结果（同一初始化、同一伤病输入）：
+
+| 指标 | 模型重规划 | Replace-only | 差值（模型-基线） |
+|---|---:|---:|---:|
+| Win% | 0.6091 | 0.5562 | +0.0529 |
+| CF | 19.55 | 13.35 | +6.19 |
+| OwnerTerminal | 542.37 | 498.31 | +44.06 |
+| Leverage | 0.052 | 0.119 | -0.066 |
+
+解释：模型在 **胜率、现金流、所有者终值** 三项上同时提升，且 **杠杆率更低**，因此是严格帕累托改进，而非“拆东墙补西墙”。
+
+对应图表如下：
+![Q5 Compare Timeline](newfigures/q5_compare_timeline.png)
+![Q5 Compare Final Bars](newfigures/q5_compare_final_bars.png)
+![Q5 Compare Delta](newfigures/q5_compare_delta.png)
+
+#### C4) 为什么模型能同时更好（对应模型机制与动作）
+
+关键原因是 Q5 对“伤病—补强—财务”的闭环增强：
+1) **公平计价**：Replace-only 不再“免费换球星”，球星溢价通过 $\Delta Payroll_c$ 进入工资成本，压低其 CF；
+2) **窗口规划**：模型不会在冻结期做不可行操作，而是规划到交易窗补强，并在休赛期做去杠杆降低利息；
+3) **收入链路**：球星替代可以减少 $\pi_t$，从而缓解票房/赞助下滑（StarFactor 通道），胜率与收入同时恢复。
+
+另外，模型单次重规划的过程轨迹也可用于论文展示：
+![Q5 Replan Metrics](newfigures/q5_metrics_timeline.png)
+![Q5 Action Heatmap](newfigures/q5_action_heatmap.png)
+![Q5 Candidate Pool](newfigures/q5_candidate_scatter.png)
+
+### 本章小结
+
+Q5 将“关键球员伤病”从随机噪声升级为可观测状态冲击，并把“球星缺阵收入损失 + 球星溢价成本”显式写入财务转移，使重规划真正成为“竞技与财务同步修复”的全系统决策。实验表明，在同一初始化与同一伤病输入下，MCTS 重规划相较于“只换最强者、策略不变”的基线实现了 Win%↑、CF↑、OwnerTerminal↑、Leverage↓ 的严格帕累托改进。
+
 ## 附录：复现代码与命令 (Reproduction)
 
 本论文所有结论、图表与数据均可由以下命令完整复现：
@@ -3159,4 +3425,7 @@ python project/experiments/q3_stochastic_game_equilibrium.py --iterations 1 --ep
 
 # 4. Q4 股权决策 MCKP 模型
 python project/experiments/q4_equity_mckp.py
+
+# 5. Q5 伤病重规划
+python project/experiments/q5_injury_replan.py --injured-player "Kelsey Mitchell" --absence 6 --availability 0.0 --phase regular
 ```

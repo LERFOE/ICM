@@ -1,0 +1,7 @@
+step,phase,a_roster,a_salary,a_ticket,a_marketing,a_debt,a_equity,candidate,salary_tier,equity_tier,extra_payroll,reward
+0,regular,3,2,2,0,2,0,,,,0.0,4.259911519166796
+1,trade_deadline,6,2,2,1,2,0,Allisha Gray,2.0,0.0,0.17923932725031722,2.322540132760239
+2,playoff,3,2,2,3,2,0,,,,0.0,4.162411398267211
+3,offseason,3,4,2,1,1,1,,,,0.0,3.3070723327192804
+4,regular,3,2,2,1,2,0,,,,0.0,4.170125275979913
+5,trade_deadline,6,5,2,1,2,0,Allisha Gray,5.0,0.0,0.23627002228450902,2.3104167424780453

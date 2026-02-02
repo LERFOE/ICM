@@ -441,4 +441,4 @@ def build_initial_state_from_data(
     # 1) selecting which season's public data to initialize from
     # 2) setting the simulation clock (so expansion years, media cycles, etc. trigger correctly)
     state_year = cfg.start_year if year is None else int(year)
-    return State(R=R, F=F, E=E, Theta=PHASE_OFFSEASON, K=K, year=state_year)
+    return State(R=R, F=F, E=E, Theta=PHASE_OFFSEASON, K=K, year=state_year, I=None)
